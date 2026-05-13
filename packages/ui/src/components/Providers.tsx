@@ -23,6 +23,18 @@ import type { Provider } from "@/types";
 
 interface ProviderType extends Provider {}
 
+const autoConvertValue = (value: string): string | number | boolean => {
+  if (typeof value !== 'string' || value.trim() === '') return value;
+  
+  if (value.toLowerCase() === 'true') return true;
+  if (value.toLowerCase() === 'false') return false;
+  
+  const num = Number(value);
+  if (!isNaN(num) && value.trim() !== '') return num;
+  
+  return value;
+};
+
 export function Providers() {
   const { t } = useTranslation();
   const { config, setConfig } = useConfig();
@@ -296,6 +308,7 @@ export function Providers() {
   const addProviderTransformerParameter = (_providerIndex: number, transformerIndex: number, paramName: string, paramValue: string) => {
     if (!editingProviderData) return;
     
+    const convertedValue = autoConvertValue(paramValue);
     const updatedProvider = { ...editingProviderData };
     
     if (!updatedProvider.transformer) {
@@ -313,22 +326,22 @@ export function Providers() {
         if (transformerArray.length > 1 && typeof transformerArray[1] === 'object' && transformerArray[1] !== null) {
           // Update the existing parameters object
           const existingParams = transformerArray[1] as Record<string, unknown>;
-          const paramsObj: Record<string, unknown> = { ...existingParams, [paramName]: paramValue };
+          const paramsObj: Record<string, unknown> = { ...existingParams, [paramName]: convertedValue };
           transformerArray[1] = paramsObj;
         } else if (transformerArray.length > 1) {
           // If there are other elements, add the parameters object
-          const paramsObj = { [paramName]: paramValue };
+          const paramsObj = { [paramName]: convertedValue };
           transformerArray.splice(1, transformerArray.length - 1, paramsObj);
         } else {
           // Add a new parameters object
-          const paramsObj = { [paramName]: paramValue };
+          const paramsObj = { [paramName]: convertedValue };
           transformerArray.push(paramsObj);
         }
         
         updatedProvider.transformer.use[transformerIndex] = transformerArray as string | (string | Record<string, unknown> | { max_tokens: number })[];
       } else {
         // Convert to array format with parameters
-        const paramsObj = { [paramName]: paramValue };
+        const paramsObj = { [paramName]: convertedValue };
         updatedProvider.transformer.use[transformerIndex] = [targetTransformer as string, paramsObj];
       }
     }
@@ -370,6 +383,7 @@ export function Providers() {
   const addModelTransformerParameter = (_providerIndex: number, model: string, transformerIndex: number, paramName: string, paramValue: string) => {
     if (!editingProviderData) return;
     
+    const convertedValue = autoConvertValue(paramValue);
     const updatedProvider = { ...editingProviderData };
     
     if (!updatedProvider.transformer) {
@@ -391,22 +405,22 @@ export function Providers() {
         if (transformerArray.length > 1 && typeof transformerArray[1] === 'object' && transformerArray[1] !== null) {
           // Update the existing parameters object
           const existingParams = transformerArray[1] as Record<string, unknown>;
-          const paramsObj: Record<string, unknown> = { ...existingParams, [paramName]: paramValue };
+          const paramsObj: Record<string, unknown> = { ...existingParams, [paramName]: convertedValue };
           transformerArray[1] = paramsObj;
         } else if (transformerArray.length > 1) {
           // If there are other elements, add the parameters object
-          const paramsObj = { [paramName]: paramValue };
+          const paramsObj = { [paramName]: convertedValue };
           transformerArray.splice(1, transformerArray.length - 1, paramsObj);
         } else {
           // Add a new parameters object
-          const paramsObj = { [paramName]: paramValue };
+          const paramsObj = { [paramName]: convertedValue };
           transformerArray.push(paramsObj);
         }
         
         updatedProvider.transformer[model].use[transformerIndex] = transformerArray as string | (string | Record<string, unknown> | { max_tokens: number })[];
       } else {
         // Convert to array format with parameters
-        const paramsObj = { [paramName]: paramValue };
+        const paramsObj = { [paramName]: convertedValue };
         updatedProvider.transformer[model].use[transformerIndex] = [targetTransformer as string, paramsObj];
       }
     }
