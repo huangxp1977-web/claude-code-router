@@ -504,8 +504,20 @@ export function Providers() {
     
     // Handle case where modelIndex might be out of bounds
     if (modelIndex >= 0 && modelIndex < models.length) {
+      const removedModel = models[modelIndex];
       models.splice(modelIndex, 1);
       updatedProvider.models = models;
+      
+      // Clean up transformer config for the removed model
+      if (updatedProvider.transformer && updatedProvider.transformer[removedModel]) {
+        delete updatedProvider.transformer[removedModel];
+        
+        // If transformer object becomes completely empty, we can delete it
+        if (Object.keys(updatedProvider.transformer).length === 0) {
+          delete updatedProvider.transformer;
+        }
+      }
+      
       setEditingProviderData(updatedProvider);
     }
   };

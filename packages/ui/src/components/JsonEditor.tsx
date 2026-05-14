@@ -14,7 +14,7 @@ interface JsonEditorProps {
 
 export function JsonEditor({ open, onOpenChange, showToast }: JsonEditorProps) {
   const { t } = useTranslation();
-  const { config } = useConfig();
+  const { config, setConfig } = useConfig();
   const [jsonValue, setJsonValue] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -84,6 +84,7 @@ export function JsonEditor({ open, onOpenChange, showToast }: JsonEditorProps) {
       );
       
       if (success) {
+        setConfig(parsedConfig);
         onOpenChange(false);
       }
     } catch (error) {
@@ -113,6 +114,7 @@ export function JsonEditor({ open, onOpenChange, showToast }: JsonEditorProps) {
       
       // Only restart if save was successful
       if (saveSuccessful) {
+        setConfig(parsedConfig);
         // Restart service
         const restartResponse = await api.restartService();
         

@@ -23,6 +23,8 @@ pnpm build
 pnpm build:cli      # Build CLI
 pnpm build:server   # Build Server
 pnpm build:ui       # Build UI
+pnpm build:shared   # Build Shared
+pnpm build:core     # Build core llms package
 ```
 
 ### Development mode
@@ -30,11 +32,15 @@ pnpm build:ui       # Build UI
 pnpm dev:cli        # Develop CLI (ts-node)
 pnpm dev:server     # Develop Server (ts-node)
 pnpm dev:ui         # Develop UI (Vite)
+pnpm dev:shared     # Develop Shared (ts-node)
+pnpm dev:core       # Develop Core (ts-node)
 ```
 
-### Publish
+### Release
 ```bash
 pnpm release        # Build and publish all packages
+pnpm release:npm    # Release to npm only
+pnpm release:docker # Release to docker only
 ```
 
 ## Core Architecture
@@ -232,7 +238,7 @@ ui (standalone frontend application)
 
 ## Development Notes
 
-1. **Node.js version**: Requires >= 18.0.0
+1. **Node.js version**: Requires >= 20.0.0 (as per package.json)
 2. **Package manager**: Uses pnpm (monorepo depends on workspace protocol)
 3. **TypeScript**: All packages use TypeScript, but UI package is ESM module
 4. **Build tools**:
@@ -246,3 +252,20 @@ ui (standalone frontend application)
 
 - Main configuration example: Complete example in README.md
 - Custom router example: `custom-router.example.js`
+
+## Testing Information
+
+The project does not appear to have explicit test directories or test scripts in the current structure. The typical development workflow includes:
+- Manual testing through the CLI and UI interfaces
+- Integration testing via the `ccr` commands
+- End-to-end testing by running the router with actual LLM providers
+
+## Package Structure
+
+The monorepo is organized as follows:
+- `packages/cli/` - Command-line interface
+- `packages/server/` - Core server functionality
+- `packages/shared/` - Shared utilities and types
+- `packages/ui/` - Web-based management interface
+- `docs/` - Documentation site
+- `blog/` - Blog content and documentation
