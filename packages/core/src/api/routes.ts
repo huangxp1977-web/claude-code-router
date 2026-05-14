@@ -113,30 +113,53 @@ async function handleFallback(
   error: any
 ): Promise<any> {
   const scenarioType = (req as any).scenarioType || 'default';
-  const fallbackConfig = fastify.configService.get<any>('fallback');
+  const Router = fastify.configService.get<any>('Router');
+  const body = req.body as any;
 
-  if (!fallbackConfig || !fallbackConfig[scenarioType]) {
-    return null;
+  let fallbackList: string[] = [];
+
+  // 1. Check if the Router configuration for this scenario is an array
+  const routerConfig = Router?.[scenarioType];
+  if (Array.isArray(routerConfig)) {
+    fallbackList = routerConfig;
+  } else {
+    // 2. Fallback to legacy 'fallback' config if it exists
+    const fallbackConfig = fastify.configService.get<any>('fallback');
+    if (fallbackConfig && fallbackConfig[scenarioType]) {
+      fallbackList = fallbackConfig[scenarioType] as string[];
+    }
   }
 
-  const fallbackList = fallbackConfig[scenarioType] as string[];
   if (!Array.isArray(fallbackList) || fallbackList.length === 0) {
     return null;
   }
 
-  req.log.warn(`Request failed for ${(req as any).scenarioType}, trying ${fallbackList.length} fallback models`);
+  // Identify the model that just failed to avoid retrying it
+  const currentProvider = (req as any).provider;
+  const currentModel = body.model;
+  const currentSpec = `${currentProvider},${currentModel}`;
+
+  // Filter out the failed model and any invalid entries
+  const modelsToTry = fallbackList.filter(m => m !== currentSpec && m.includes(','));
+
+  if (modelsToTry.length === 0) {
+    return null;
+  }
+
+  req.log.warn(`Request failed for ${scenarioType} (${currentSpec}), trying ${modelsToTry.length} fallback models`);
 
   // Try each fallback model in sequence
-  for (const fallbackModel of fallbackList) {
+  for (const fallbackModel of modelsToTry) {
     try {
       req.log.info(`Trying fallback model: ${fallbackModel}`);
 
       // Update request with fallback model
-      const newBody = { ...(req.body as any) };
-      const [fallbackProvider, ...fallbackModelName] = fallbackModel.split(',');
-      newBody.model = fallbackModelName.join(',');
+      const newBody = { ...body };
+      const [fallbackProvider, ...fallbackModelNameParts] = fallbackModel.split(',');
+      const fallbackModelName = fallbackModelNameParts.join(',');
+      newBody.model = fallbackModelName;
 
-      // Create new request object with updated provider and body
+      // Create a shallow copy of request for the fallback attempt
       const newReq = {
         ...req,
         provider: fallbackProvider,
@@ -185,11 +208,12 @@ async function handleFallback(
       return formatResponse(finalResponse, reply, newBody);
     } catch (fallbackError: any) {
       req.log.warn(`Fallback model ${fallbackModel} failed: ${fallbackError.message}`);
+      // Continue to next fallback model
       continue;
     }
   }
 
-  req.log.error(`All fallback models failed for yichu ${scenarioType}`);
+  req.log.error(`All fallback models failed for scenario ${scenarioType}`);
   return null;
 }
 

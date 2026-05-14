@@ -13,7 +13,7 @@ import {
   extractPreset,
   manifestToPresetFile,
   type PresetFile,
-} from '@CCR/shared';
+} from '@thxp/shared';
 import AdmZip from 'adm-zip';
 
 // ANSI color codes

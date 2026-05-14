@@ -1,9 +1,9 @@
 import { get_encoding } from "tiktoken";
-import { sessionUsageCache, Usage } from "./cache";
+import { sessionUsageCache, Usage, isModelFailed, getModelSpec } from "./cache";
 import { readFile } from "fs/promises";
 import { opendir, stat } from "fs/promises";
 import { join } from "path";
-import { CLAUDE_PROJECTS_DIR, HOME_DIR } from "@CCR/shared";
+import { CLAUDE_PROJECTS_DIR, HOME_DIR } from "@thxp/shared";
 import { LRUCache } from "lru-cache";
 import { ConfigService } from "../services/config";
 import { TokenizerService } from "../services/tokenizer";
@@ -145,6 +145,32 @@ const getUseModel = async (
     return { model: req.body.model, scenarioType: 'default' };
   }
 
+  // Helper function to get a valid model from array or string
+  const getValidModel = (modelConfig: string | string[] | undefined): string | null => {
+    if (!modelConfig) return null;
+
+    // If it's a string, return it directly
+    if (typeof modelConfig === 'string') {
+      return modelConfig;
+    }
+
+    // If it's an array, return the first valid model that is not in the failedModelsCache
+    if (Array.isArray(modelConfig)) {
+      for (const model of modelConfig) {
+        if (typeof model === 'string' && model.trim()) {
+          // Validate that the model exists in providers
+          const [providerName, modelName] = model.split(',');
+          const provider = providers.find(p => p.name.toLowerCase() === providerName.toLowerCase());
+          if (provider && provider.models.includes(modelName) && !isModelFailed(getModelSpec(providerName, modelName))) {
+            return model;
+          }
+        }
+      }
+    }
+
+    return null;
+  };
+
   // if tokenCount is greater than the configured threshold, use the long context model
   const longContextThreshold = Router?.longContextThreshold || 60000;
   const lastUsageThreshold =
@@ -156,7 +182,10 @@ const getUseModel = async (
     req.log.info(
       `Using long context model due to token count: ${tokenCount}, threshold: ${longContextThreshold}`
     );
-    return { model: Router.longContext, scenarioType: 'longContext' };
+    const model = getValidModel(Router.longContext);
+    if (model) {
+      return { model, scenarioType: 'longContext' };
+    }
   }
   if (
     req.body?.system?.length > 1 &&
@@ -181,7 +210,10 @@ const getUseModel = async (
     globalRouter?.background
   ) {
     req.log.info(`Using background model for ${req.body.model}`);
-    return { model: globalRouter.background, scenarioType: 'background' };
+    const model = getValidModel(globalRouter.background);
+    if (model) {
+      return { model, scenarioType: 'background' };
+    }
   }
   // The priority of websearch must be higher than thinking.
   if (
@@ -189,13 +221,27 @@ const getUseModel = async (
     req.body.tools.some((tool: any) => tool.type?.startsWith("web_search")) &&
     Router?.webSearch
   ) {
-    return { model: Router.webSearch, scenarioType: 'webSearch' };
+    const model = getValidModel(Router.webSearch);
+    if (model) {
+      return { model, scenarioType: 'webSearch' };
+    }
   }
   // if exits thinking, use the think model
   if (req.body.thinking && Router?.think) {
     req.log.info(`Using think model for ${req.body.thinking}`);
-    return { model: Router.think, scenarioType: 'think' };
+    const model = getValidModel(Router.think);
+    if (model) {
+      return { model, scenarioType: 'think' };
+    }
   }
+
+  // Handle default case with array support
+  const defaultModel = getValidModel(Router?.default);
+  if (defaultModel) {
+    return { model: defaultModel, scenarioType: 'default' };
+  }
+
+  // Fallback to original behavior if no valid model found
   return { model: Router?.default, scenarioType: 'default' };
 };
 

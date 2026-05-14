@@ -106,13 +106,13 @@ export interface ProviderConfig {
 
 // Router configuration
 export interface RouterConfig {
-  default?: string;
-  background?: string;
-  think?: string;
-  longContext?: string;
+  default?: string | string[];
+  background?: string | string[];
+  think?: string | string[];
+  longContext?: string | string[];
   longContextThreshold?: number;
-  webSearch?: string;
-  image?: string;
+  webSearch?: string | string[];
+  image?: string | string[];
   [key: string]: string | number | undefined;
 }
 

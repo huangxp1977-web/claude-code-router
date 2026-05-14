@@ -6,10 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code Router is a tool that routes Claude Code requests to different LLM providers. It uses a Monorepo architecture with four main packages:
 
-- **cli** (`@musistudio/claude-code-router`): Command-line tool providing the `ccr` command
-- **server** (`@CCR/server`): Core server handling API routing and transformations
-- **shared** (`@CCR/shared`): Shared constants, utilities, and preset management
-- **ui** (`@CCR/ui`): Web management interface (React + Vite)
+- **cli** (`@thxp/claude-code-router`): Command-line tool providing the `ccr` command
+- **server** (`@thxp/server`): Core server handling API routing and transformations
+- **shared** (`@thxp/shared`): Shared constants, utilities, and preset management
+- **ui** (`@thxp/ui`): Web management interface (React + Vite)
 
 ## Build Commands
 
@@ -63,7 +63,7 @@ Token calculation uses `tiktoken` (cl100k_base) to estimate request size.
 
 ### 2. Transformer System
 
-The project uses the `@musistudio/llms` package (external dependency) to handle request/response transformations. Transformers adapt to different provider API differences:
+The project uses the `@thxp/llms` package (external dependency) to handle request/response transformations. Transformers adapt to different provider API differences:
 
 - Built-in transformers: `anthropic`, `deepseek`, `gemini`, `openrouter`, `groq`, `maxtoken`, `tooluse`, `reasoning`, `enhancetool`, etc.
 - Custom transformers: Load external plugins via `transformers` array in `config.json`
@@ -232,7 +232,7 @@ Key files:
 
 ```
 cli → server → shared
-server → @musistudio/llms (core routing and transformation logic)
+server → @thxp/llms (core routing and transformation logic)
 ui (standalone frontend application)
 ```
 
@@ -244,9 +244,10 @@ ui (standalone frontend application)
 4. **Build tools**:
    - cli/server/shared: esbuild
    - ui: Vite + TypeScript
-5. **@musistudio/llms**: This is an external dependency package providing the core server framework and transformer functionality, type definitions in `packages/server/src/types.d.ts`
+5. **@thxp/llms**: This is an external dependency package providing the core server framework and transformer functionality, type definitions in `packages/server/src/types.d.ts`
 6. **Code comments**: All comments in code MUST be written in English
 7. **Documentation**: When implementing new features, add documentation to the docs project instead of creating standalone md files
+8. **Git status checks**: Always use `git diff -w --stat` to see actual content changes (filters out CRLF/LF conversions). Use `git diff --name-only` for file lists, never `git status --short` which inflates counts with whitespace-only changes. Distinguish staged (`git diff --cached`) vs unstaged (`git diff`) vs untracked (`git ls-files --others --exclude-standard`).
 
 ## Configuration Example Locations
 

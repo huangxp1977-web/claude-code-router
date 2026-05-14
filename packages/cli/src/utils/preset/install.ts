@@ -17,7 +17,7 @@ import {
   ManifestFile,
   PresetFile,
   UserInputValues,
-} from '@CCR/shared';
+} from '@thxp/shared';
 import { collectUserInputs } from '../prompt/schema-input';
 
 // Re-export loadPreset

@@ -18,7 +18,7 @@ Claude Code Router Server is a core service component responsible for routing Cl
 ┌─────────────┐     ┌─────────────────────────────┐     ┌──────────────┐
 │ Claude Code │────▶│ CCR Server                  │────▶│ LLM Provider │
 │   Client    │     │  ┌─────────────────────┐    │     │  (OpenAI/    │
-└─────────────┘     │  │ @musistudio/llms    │    │     │   Gemini/etc)│
+└─────────────┘     │  │ @thxp/llms    │    │     │   Gemini/etc)│
                     │  │ (Core Package)       │    │     └──────────────┘
                     │  │ - Request Transform  │    │
                     │  │ - Response Transform │    │
@@ -35,13 +35,13 @@ Claude Code Router Server is a core service component responsible for routing Cl
                            └─ Logs API
 ```
 
-## Core Package: @musistudio/llms
+## Core Package: @thxp/llms
 
-The server is built on top of **@musistudio/llms**, a universal LLM API transformation library that provides the core request/response transformation capabilities.
+The server is built on top of **@thxp/llms**, a universal LLM API transformation library that provides the core request/response transformation capabilities.
 
-### What is @musistudio/llms?
+### What is @thxp/llms?
 
-`@musistudio/llms` is a standalone npm package (`@musistudio/llms`) that handles:
+`@thxp/llms` is a standalone npm package (`@thxp/llms`) that handles:
 
 - **API Format Conversion**: Transforms between different LLM provider APIs (Anthropic, OpenAI, Gemini, etc.)
 - **Request/Response Transformation**: Converts requests and responses to a unified format
@@ -101,7 +101,7 @@ The core package includes transformers for:
 
 ### Integration with CCR Server
 
-The CCR server integrates `@musistudio/llms` through:
+The CCR server integrates `@thxp/llms` through:
 
 1. **Transformer Service** (`packages/core/src/services/transformer.ts`): Manages transformer registration and instantiation
 2. **Provider Configuration**: Maps provider configs to core package's LLMProvider interface
@@ -110,7 +110,7 @@ The CCR server integrates `@musistudio/llms` through:
 
 ### Version and Updates
 
-The current version of `@musistudio/llms` is `1.0.51`. It's published as an independent npm package and can be used standalone or as part of CCR Server.
+The current version of `@thxp/llms` is `1.0.51`. It's published as an independent npm package and can be used standalone or as part of CCR Server.
 
 ## Core Features
 
