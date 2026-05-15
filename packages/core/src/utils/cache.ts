@@ -39,9 +39,38 @@ class LRUCache<K, V> {
     this.cache.set(key, value);
   }
 
+  has(key: K): boolean {
+    return this.cache.has(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
   values(): V[] {
     return Array.from(this.cache.values());
   }
 }
 
 export const sessionUsageCache = new LRUCache<string, Usage>(100);
+
+// Cache for failed models - stores provider,model pairs that have failed
+// This prevents retrying failed models on every request
+export const failedModelsCache = new LRUCache<string, number>(1000);
+
+export const markModelAsFailed = (modelSpec: string): void => {
+  failedModelsCache.put(modelSpec, Date.now());
+};
+
+export const isModelFailed = (modelSpec: string): boolean => {
+  return failedModelsCache.has(modelSpec);
+};
+
+export const clearFailedModels = (): void => {
+  failedModelsCache.clear();
+};
+
+// Helper to get model spec string
+export const getModelSpec = (provider: string, model: string): string => {
+  return `${provider},${model}`;
+};

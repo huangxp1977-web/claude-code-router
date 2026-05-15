@@ -53,7 +53,7 @@ export interface UnifiedMessage {
     type: "function";
     function: {
       name: string;
-      arguments: string;
+      arguments: string | any;
     };
   }>;
   tool_call_id?: string;
