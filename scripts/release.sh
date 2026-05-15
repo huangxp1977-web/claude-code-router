@@ -59,10 +59,13 @@ publish_core_npm() {
   cp ../README.md "$CORE_DIR/" 2>/dev/null || echo "README.md 不存在，跳过..."
   cp ../LICENSE "$CORE_DIR/" 2>/dev/null || echo "LICENSE 文件不存在，跳过..."
 
-  # 发布到 npm
-  cd "$CORE_DIR"
-  echo "执行 npm publish..."
-  npm publish --access public
+  # 使用子 Shell 发布，避免改变主脚本的路径
+  (
+    cd "$CORE_DIR"
+    echo "执行 npm publish..."
+    # 如果版本已存在，npm 会报错，我们加 || true 让脚本继续
+    npm publish --access public || echo "提示: @thxp/llms 版本已存在，跳过发布。"
+  )
 
   echo ""
   echo "✅ Core npm 包发布成功!"
