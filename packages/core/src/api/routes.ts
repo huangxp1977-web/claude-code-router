@@ -99,7 +99,7 @@ async function handleTransformerEndpoint(
       req.log.warn(`[Fallback] Error on attempt ${retryCount}: ${error.message?.substring(0, 100)}`);
       
       // Try to get a fallback model
-      const fallbackModel = await getFallbackModel(req, error);
+      const fallbackModel = await getFallbackModel(req, fastify, error);
       if (fallbackModel) {
         req.log.warn(`[Fallback] Rotating to ${fallbackModel.provider.name},${fallbackModel.modelName}`);
         
@@ -121,18 +121,18 @@ async function handleTransformerEndpoint(
 /**
  * Internal helper to find the next model to try without sending a request
  */
-async function getFallbackModel(req: FastifyRequest, error: any) {
+async function getFallbackModel(req: FastifyRequest, fastify: FastifyInstance, error: any) {
   if (error.code !== 'provider_response_error' && error.statusCode !== 403 && error.statusCode !== 400) {
     return null;
   }
 
-  const currentModelSpec = getModelSpec(req);
+  const currentModelSpec = getModelSpec(req.provider!, req.body.model);
   markModelAsFailed(currentModelSpec);
 
   const scenarioType = (req as any).scenarioType || "default";
-  const configService = (req.server as any).configService;
-  const providerService = (req.server as any).providerService;
-  const transformerService = (req.server as any).transformerService;
+  const configService = fastify.configService;
+  const providerService = fastify.providerService;
+  const transformerService = fastify.transformerService;
   
   const config = await configService.getConfig();
   const router = config.Router || {};
