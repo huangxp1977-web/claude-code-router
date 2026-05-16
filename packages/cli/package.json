@@ -1,13 +1,9 @@
 {
   "name": "@thxp/claude-code-router",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "CLI for Claude Code Router",
   "bin": {
     "ccr": "dist/cli.js"
-  },
-  "scripts": {
-    "build": "node ../../scripts/build-cli.js",
-    "dev": "ts-node src/cli.ts"
   },
   "keywords": [
     "claude",
@@ -17,19 +13,18 @@
   ],
   "author": "musistudio",
   "license": "MIT",
-  "devDependencies": {
-    "@thxp/server": "workspace:*",
-    "@thxp/shared": "workspace:*",
-    "@inquirer/prompts": "^5.0.0",
-    "@types/archiver": "^7.0.0",
-    "@types/node": "^24.0.15",
-    "adm-zip": "^0.5.16",
-    "archiver": "^7.0.1",
-    "esbuild": "^0.25.1",
-    "find-process": "^2.0.0",
-    "minimist": "^1.2.8",
-    "openurl": "^1.1.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.2"
+  "files": [
+    "dist/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@thxp/llms": "^3.0.3"
+  },
+  "peerDependencies": {
+    "node": ">=18.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
