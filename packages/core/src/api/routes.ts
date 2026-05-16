@@ -12,7 +12,7 @@ import { ConfigService } from "@/services/config";
 import { ProviderService } from "@/services/provider";
 import { TransformerService } from "@/services/transformer";
 import { Transformer } from "@/types/transformer";
-import { markModelAsFailed, getModelSpec } from "@/utils/cache";
+import { markModelAsFailed, getModelSpec, isModelFailed } from "@/utils/cache";
 
 // Extend FastifyInstance to include custom services
 declare module "fastify" {
@@ -51,57 +51,116 @@ async function handleTransformerEndpoint(
     );
   }
 
-  try {
-    // Process request transformer chain
-    const { requestBody, config, bypass } = await processRequestTransformers(
-      body,
-      provider,
-      transformer,
-      req.headers,
-      {
-        req,
-      }
-    );
+  let currentBody = body;
+  let currentProvider = provider;
+  let currentTransformer = transformer;
+  let retryCount = 0;
+  const maxRetries = 15; // Set a reasonable limit for rotation
 
-    // Send request to LLM provider
-    const response = await sendRequestToProvider(
-      requestBody,
-      config,
-      provider,
-      fastify,
-      bypass,
-      transformer,
-      {
-        req,
-      }
-    );
+  while (retryCount < maxRetries) {
+    try {
+      // Set context for this specific attempt
+      (req as any).provider = currentProvider.name;
+      (req as any).scenarioType = (req as any).scenarioType || "default";
 
-    // Process response transformer chain
-    const finalResponse = await processResponseTransformers(
-      requestBody,
-      response,
-      provider,
-      transformer,
-      bypass,
-      {
-        req,
-      }
-    );
+      const { requestBody, config: requestConfig, bypass } = await processRequestTransformers(
+        currentBody,
+        currentProvider,
+        currentTransformer,
+        req.headers,
+        { req }
+      );
 
-    // Format and return response
-    return formatResponse(finalResponse, reply, body);
-  } catch (error: any) {
-    // Handle fallback if error occurs
-    if (error.code === 'provider_response_error') {
-      const fallbackResult = await handleFallback(req, reply, fastify, transformer, error);
-      if (fallbackResult) {
-        return fallbackResult;
+      // Send request to LLM provider
+      const response = await sendRequestToProvider(
+        requestBody,
+        requestConfig,
+        currentProvider,
+        fastify,
+        bypass,
+        currentTransformer,
+        { req }
+      );
+
+      // Process response transformer chain
+      const finalResponse = await processResponseTransformers(
+        requestBody,
+        response,
+        currentProvider,
+        currentTransformer,
+        bypass,
+        { req }
+      );
+
+      // Format and return response
+      return formatResponse(finalResponse, reply, currentBody);
+    } catch (error: any) {
+      retryCount++;
+      req.log.warn(`[Fallback] Error on attempt ${retryCount}: ${error.message?.substring(0, 100)}`);
+      
+      // Try to get a fallback model
+      const fallbackModel = await getFallbackModel(req, error);
+      if (fallbackModel) {
+        req.log.warn(`[Fallback] Rotating to ${fallbackModel.provider.name},${fallbackModel.modelName}`);
+        
+        // Update state for next iteration
+        currentProvider = fallbackModel.provider;
+        currentTransformer = fallbackModel.transformerConfig;
+        // Update body to match the new model
+        currentBody = { ...body, model: fallbackModel.modelName };
+        
+        continue; // Try again with the new model
       }
+      
+      // If no fallback possible, throw the last error
+      throw error;
     }
-    throw error;
   }
 }
 
+/**
+ * Internal helper to find the next model to try without sending a request
+ */
+async function getFallbackModel(req: FastifyRequest, error: any) {
+  if (error.code !== 'provider_response_error' && error.statusCode !== 403 && error.statusCode !== 400) {
+    return null;
+  }
+
+  const currentModelSpec = getModelSpec(req);
+  markModelAsFailed(currentModelSpec);
+
+  const scenarioType = (req as any).scenarioType || "default";
+  const configService = (req.server as any).configService;
+  const providerService = (req.server as any).providerService;
+  const transformerService = (req.server as any).transformerService;
+  
+  const config = await configService.getConfig();
+  const router = config.Router || {};
+  const fallbackList = getArrayValue(router[scenarioType] || router.default);
+
+  if (!Array.isArray(fallbackList) || fallbackList.length === 0) {
+    return null;
+  }
+
+  const modelsToTry = fallbackList.filter(m => !isModelFailed(m));
+  if (modelsToTry.length === 0) {
+    return null;
+  }
+
+  const nextModelSpec = modelsToTry[0];
+  const [targetProviderName, targetModelName] = nextModelSpec.split(",");
+  
+  const targetProvider = await providerService.getProvider(targetProviderName);
+  if (!targetProvider) return null;
+
+  const transformerConfig = await transformerService.getTransformerConfig(targetProvider, targetModelName);
+  
+  return {
+    provider: targetProvider,
+    modelName: targetModelName,
+    transformerConfig
+  };
+}
 /**
  * Handle fallback logic when request fails
  * Tries each fallback model in sequence until one succeeds
@@ -117,6 +176,8 @@ async function handleFallback(
   const Router = fastify.configService.get<any>('Router');
   const body = req.body as any;
 
+  req.log.warn(`[Fallback] scenarioType=${scenarioType}, Router.default type=${typeof Router?.default}, isArray=${Array.isArray(Router?.default)}`);
+
   let fallbackList: string[] = [];
 
   // 1. Check if the Router configuration for this scenario is an array
@@ -131,7 +192,10 @@ async function handleFallback(
     }
   }
 
+  req.log.warn(`[Fallback] fallbackList length=${fallbackList.length}`);
+
   if (!Array.isArray(fallbackList) || fallbackList.length === 0) {
+    req.log.warn(`[Fallback] No fallback list available, returning null`);
     return null;
   }
 
@@ -140,11 +204,15 @@ async function handleFallback(
   const currentModel = body.model;
   const currentSpec = getModelSpec(currentProvider, currentModel);
 
+  req.log.warn(`[Fallback] currentProvider=${currentProvider}, currentModel=${currentModel}, currentSpec=${currentSpec}`);
+
   // Mark the failed model
   markModelAsFailed(currentSpec);
 
   // Filter out the failed model (removed the strict comma requirement)
   const modelsToTry = fallbackList.filter(m => m !== currentSpec);
+
+  req.log.warn(`[Fallback] modelsToTry count=${modelsToTry.length}`);
 
   if (modelsToTry.length === 0) {
     return null;

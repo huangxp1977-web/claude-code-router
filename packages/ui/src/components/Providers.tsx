@@ -23,6 +23,41 @@ import type { Provider } from "@/types";
 
 interface ProviderType extends Provider {}
 
+// Router fields that may reference provider models
+const ROUTER_FIELDS = ['default', 'background', 'think', 'longContext', 'webSearch', 'image'] as const;
+
+/**
+ * Clean up Router references when models are removed from a provider or a provider is deleted.
+ * Handles both string (single model) and array (multi-model rotation) Router field values.
+ */
+function cleanRouterReferences(
+  router: any,
+  providerName: string,
+  removedModels: string[]
+): Record<string, any> {
+  if (!router) return {};
+
+  const cleanedRouter = { ...router };
+  const specsToRemove = removedModels.map(m => `${providerName},${m}`);
+
+  for (const field of ROUTER_FIELDS) {
+    const value = cleanedRouter[field];
+    if (!value) continue;
+
+    if (typeof value === 'string') {
+      // Single model string: clear if it matches any removed spec
+      if (specsToRemove.includes(value)) {
+        cleanedRouter[field] = '';
+      }
+    } else if (Array.isArray(value)) {
+      // Multi-model array: filter out all removed specs
+      cleanedRouter[field] = value.filter((m: string) => !specsToRemove.includes(m));
+    }
+  }
+
+  return cleanedRouter;
+}
+
 const autoConvertValue = (value: string): string | number | boolean => {
   if (typeof value !== 'string' || value.trim() === '') return value;
   
@@ -169,12 +204,33 @@ export function Providers() {
     
     if (editingProviderIndex !== null && editingProviderData) {
       const newProviders = [...config.Providers];
+      let updatedRouter = config.Router;
+
       if (isNewProvider) {
         newProviders.push(editingProviderData);
       } else {
+        // Detect removed models and clean Router references
+        const oldProvider = config.Providers[editingProviderIndex];
+        const oldModels: string[] = oldProvider?.models || [];
+        const newModels: string[] = editingProviderData.models || [];
+        const removedModels = oldModels.filter(m => !newModels.includes(m));
+
+        if (removedModels.length > 0) {
+          updatedRouter = cleanRouterReferences(config.Router, editingProviderData.name, removedModels) as any;
+        }
+
+        // Also clean up model-specific transformer configs for removed models
+        if (editingProviderData.transformer) {
+          const cleanedTransformer = { ...editingProviderData.transformer };
+          for (const removedModel of removedModels) {
+            delete cleanedTransformer[removedModel];
+          }
+          editingProviderData.transformer = cleanedTransformer;
+        }
+
         newProviders[editingProviderIndex] = editingProviderData;
       }
-      setConfig({ ...config, Providers: newProviders });
+      setConfig({ ...config, Providers: newProviders, Router: updatedRouter });
     }
     // Reset API key visibility for this provider
     if (editingProviderIndex !== null) {
@@ -220,9 +276,17 @@ export function Providers() {
   const handleRemoveProvider = (filteredIndex: number) => {
     // Find the actual index in the original providers array
     const actualIndex = validProviders.indexOf(filteredProviders[filteredIndex]);
+    const removedProvider = config.Providers[actualIndex];
     const newProviders = [...config.Providers];
     newProviders.splice(actualIndex, 1);
-    setConfig({ ...config, Providers: newProviders });
+
+    // Clean Router references for all models of the deleted provider
+    let updatedRouter = config.Router;
+    if (removedProvider?.models?.length > 0) {
+      updatedRouter = cleanRouterReferences(config.Router, removedProvider.name, removedProvider.models) as any;
+    }
+
+    setConfig({ ...config, Providers: newProviders, Router: updatedRouter });
     setDeletingProviderIndex(null);
   };
 
