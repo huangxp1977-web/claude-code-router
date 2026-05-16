@@ -12,6 +12,7 @@ import { ConfigService } from "@/services/config";
 import { ProviderService } from "@/services/provider";
 import { TransformerService } from "@/services/transformer";
 import { Transformer } from "@/types/transformer";
+import { markModelAsFailed, getModelSpec } from "@/utils/cache";
 
 // Extend FastifyInstance to include custom services
 declare module "fastify" {
@@ -137,10 +138,13 @@ async function handleFallback(
   // Identify the model that just failed to avoid retrying it
   const currentProvider = (req as any).provider;
   const currentModel = body.model;
-  const currentSpec = `${currentProvider},${currentModel}`;
+  const currentSpec = getModelSpec(currentProvider, currentModel);
 
-  // Filter out the failed model and any invalid entries
-  const modelsToTry = fallbackList.filter(m => m !== currentSpec && m.includes(','));
+  // Mark the failed model
+  markModelAsFailed(currentSpec);
+
+  // Filter out the failed model (removed the strict comma requirement)
+  const modelsToTry = fallbackList.filter(m => m !== currentSpec);
 
   if (modelsToTry.length === 0) {
     return null;
@@ -153,24 +157,45 @@ async function handleFallback(
     try {
       req.log.info(`Trying fallback model: ${fallbackModel}`);
 
+      let fallbackProviderName = '';
+      let fallbackModelName = fallbackModel;
+
+      // Resolve provider and model name
+      if (fallbackModel.includes(',')) {
+        const [p, ...mParts] = fallbackModel.split(',');
+        fallbackProviderName = p;
+        fallbackModelName = mParts.join(',');
+      } else {
+        const providers = fastify.providerService.getProviders();
+        const foundProvider = providers.find(p => p.models.includes(fallbackModelName));
+        if (foundProvider) {
+          fallbackProviderName = foundProvider.name;
+        } else {
+          req.log.warn(`Skipping fallback model ${fallbackModelName} because no provider offers it`);
+          continue;
+        }
+      }
+
       // Update request with fallback model
       const newBody = { ...body };
-      const [fallbackProvider, ...fallbackModelNameParts] = fallbackModel.split(',');
-      const fallbackModelName = fallbackModelNameParts.join(',');
       newBody.model = fallbackModelName;
 
-      // Create a shallow copy of request for the fallback attempt
-      const newReq = {
-        ...req,
-        provider: fallbackProvider,
-        body: newBody,
-      };
-
-      const provider = fastify.providerService.getProvider(fallbackProvider);
+      const provider = fastify.providerService.getProvider(fallbackProviderName);
       if (!provider) {
-        req.log.warn(`Fallback provider '${fallbackProvider}' not found, skipping`);
+        req.log.warn(`Fallback provider ${fallbackProviderName} not found`);
         continue;
       }
+
+      // Ensure we don't try models that have already failed
+      const specToCheck = getModelSpec(fallbackProviderName, fallbackModelName);
+      if (isModelFailed(specToCheck)) {
+        req.log.info(`Skipping fallback model ${specToCheck} as it failed recently`);
+        continue;
+      }
+
+      const newReq = Object.create(req);
+      newReq.provider = fallbackProviderName;
+      newReq.body = newBody;
 
       // Process request transformer chain
       const { requestBody, config, bypass } = await processRequestTransformers(

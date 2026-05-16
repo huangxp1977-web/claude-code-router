@@ -149,12 +149,18 @@ export class AnthropicTransformer implements Transformer {
             );
             if (toolCallParts.length) {
               assistantMessage.tool_calls = toolCallParts.map((tool: any) => {
+                // Ensure arguments is ALWAYS a valid stringified JSON object
+                let safeInput = tool.input;
+                if (typeof safeInput !== "object" || safeInput === null) {
+                  safeInput = safeInput ? { text: String(safeInput) } : {};
+                }
+                
                 return {
                   id: tool.id,
                   type: "function" as const,
                   function: {
                     name: tool.name,
-                    arguments: JSON.stringify(tool.input || {}),
+                    arguments: JSON.stringify(safeInput),
                   },
                 };
               });

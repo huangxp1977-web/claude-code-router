@@ -19,9 +19,16 @@ export class ToolArgsTransformer implements Transformer {
           if (tc.function && typeof tc.function.arguments === 'string') {
             try {
               // Attempt to parse string arguments into an object
-              tc.function.arguments = JSON.parse(tc.function.arguments);
+              const parsed = JSON.parse(tc.function.arguments);
+              if (typeof parsed === 'object' && parsed !== null) {
+                tc.function.arguments = parsed;
+              } else {
+                // If it parses to a primitive, wrap it
+                tc.function.arguments = { text: String(parsed) };
+              }
             } catch (e) {
-              // If parsing fails, keep it as a string
+              // If parsing fails (invalid JSON string like ""), wrap it in an object
+              tc.function.arguments = { text: tc.function.arguments };
             }
           }
         });

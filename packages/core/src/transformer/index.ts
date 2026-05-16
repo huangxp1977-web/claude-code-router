@@ -20,6 +20,7 @@ import { VercelTransformer } from "./vercel.transformer";
 import { OpenAIResponsesTransformer } from "./openai.responses.transformer";
 import { ForceReasoningTransformer } from "./forcereasoning.transformer"
 import { ToolArgsTransformer } from "./toolargs.transformer";
+import { StreamToSyncTransformer } from "./stream-to-sync.transformer";
 
 export default {
   AnthropicTransformer,
@@ -43,5 +44,6 @@ export default {
   VercelTransformer,
   OpenAIResponsesTransformer,
   ForceReasoningTransformer,
-  ToolArgsTransformer
+  ToolArgsTransformer,
+  StreamToSyncTransformer
 };

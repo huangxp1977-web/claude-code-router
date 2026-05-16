@@ -159,10 +159,18 @@ const getUseModel = async (
       for (const model of modelConfig) {
         if (typeof model === 'string' && model.trim()) {
           // Validate that the model exists in providers
-          const [providerName, modelName] = model.split(',');
-          const provider = providers.find(p => p.name.toLowerCase() === providerName.toLowerCase());
-          if (provider && provider.models.includes(modelName) && !isModelFailed(getModelSpec(providerName, modelName))) {
-            return model;
+          if (model.includes(',')) {
+            const [providerName, modelName] = model.split(',');
+            const provider = providers.find(p => p.name.toLowerCase() === providerName.toLowerCase());
+            if (provider && provider.models.includes(modelName) && !isModelFailed(getModelSpec(providerName, modelName))) {
+              return model;
+            }
+          } else {
+            // Find provider that has this model
+            const provider = providers.find(p => p.models.includes(model));
+            if (provider && !isModelFailed(getModelSpec(provider.name, model))) {
+              return model;
+            }
           }
         }
       }

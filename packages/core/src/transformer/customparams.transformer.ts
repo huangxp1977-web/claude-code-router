@@ -35,18 +35,12 @@ export class CustomParamsTransformer implements Transformer {
     
     for (const [key, value] of parametersToInject) {
       if (key in modifiedRequest) {
-        // Deep merge with existing parameter
-        if (typeof modifiedRequest[key] === 'object' && 
-            typeof value === 'object' && 
-            !Array.isArray(modifiedRequest[key]) && 
-            !Array.isArray(value) &&
-            modifiedRequest[key] !== null &&
-            value !== null) {
-          // Deep merge objects
+        // If both are objects (and not arrays/null), perform deep merge
+        if (this.isObject(modifiedRequest[key]) && this.isObject(value)) {
           modifiedRequest[key] = this.deepMergeObjects(modifiedRequest[key], value);
         } else {
-          // For non-objects, keep existing value (preserve original)
-          continue;
+          // For non-objects or mismatched types, overwrite with the new value
+          modifiedRequest[key] = this.cloneValue(value);
         }
       } else {
         // Add new parameter
@@ -62,7 +56,12 @@ export class CustomParamsTransformer implements Transformer {
     return response;
   }
 
-
+  /**
+   * Check if value is a plain object
+   */
+  private isObject(val: any): boolean {
+    return typeof val === 'object' && val !== null && !Array.isArray(val);
+  }
 
   /**
    * Deep merge two objects recursively
@@ -72,12 +71,8 @@ export class CustomParamsTransformer implements Transformer {
     
     for (const [key, value] of Object.entries(source)) {
       if (key in result && 
-          typeof result[key] === 'object' && 
-          typeof value === 'object' &&
-          !Array.isArray(result[key]) && 
-          !Array.isArray(value) &&
-          result[key] !== null &&
-          value !== null) {
+          this.isObject(result[key]) && 
+          this.isObject(value)) {
         result[key] = this.deepMergeObjects(result[key], value);
       } else {
         result[key] = this.cloneValue(value);
