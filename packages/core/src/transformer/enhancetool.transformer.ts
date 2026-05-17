@@ -2,7 +2,13 @@ import { Transformer } from "@/types/transformer";
 import { parseToolArguments } from "@/utils/toolArgumentsParser";
 
 export class EnhanceToolTransformer implements Transformer {
+  static TransformerName = "enhancetool";
   name = "enhancetool";
+  private logger: any;
+
+  constructor(options?: any) {
+    this.logger = options?.logger;
+  }
 
   async transformResponseOut(response: Response): Promise<Response> {
     if (response.headers.get("Content-Type")?.includes("application/json")) {
@@ -185,6 +191,14 @@ export class EnhanceToolTransformer implements Transformer {
                 // Handle finish_reason for tool_calls
                 if (data.choices?.[0]?.finish_reason === "tool_calls" && currentToolCall.index !== undefined) {
                   // Process the final tool call using helper function
+                  processCompletedToolCall(data, controller, encoder);
+                  currentToolCall = {};
+                  return;
+                }
+
+                // Handle finish_reason=stop when there are accumulated tool call arguments
+                if (data.choices?.[0]?.finish_reason === "stop" && currentToolCall.index !== undefined) {
+                  // Flush accumulated tool call arguments before stopping
                   processCompletedToolCall(data, controller, encoder);
                   currentToolCall = {};
                   return;
