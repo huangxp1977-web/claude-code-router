@@ -1,4 +1,4 @@
-import { UnifiedChatRequest } from "../types/llm";
+import { UnifiedChatRequest, LLMProvider } from "../types/llm";
 import { Transformer } from "../types/transformer";
 
 /**
@@ -11,6 +11,7 @@ export class StreamToSyncTransformer implements Transformer {
 
   async transformRequestIn(
     request: UnifiedChatRequest,
+    _provider: LLMProvider,
     context?: any
   ): Promise<UnifiedChatRequest> {
     // Store the original stream preference in context

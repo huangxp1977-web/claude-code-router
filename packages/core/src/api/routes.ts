@@ -119,6 +119,17 @@ async function handleTransformerEndpoint(
 }
 
 /**
+ * Safely normalize a Router field value to string[]
+ * Handles: undefined -> [], string -> [string], string[] -> string[]
+ */
+function getArrayValue(val: any): string[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') return val ? [val] : [];
+  return [];
+}
+
+/**
  * Internal helper to find the next model to try without sending a request
  */
 async function getFallbackModel(req: FastifyRequest, fastify: FastifyInstance, error: any) {
