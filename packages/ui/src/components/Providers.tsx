@@ -90,16 +90,27 @@ export function Providers() {
 
   useEffect(() => {
     const fetchProviderTemplates = async () => {
+      // Built-in templates that are always available
+      const builtinTemplates: ProviderType[] = [
+        {
+          name: "sensenova",
+          api_base_url: "https://token.sensenova.cn/v1/chat/completions",
+          api_key: "",
+          models: ["sensenova-6.7-flash-lite", "deepseek-v4-flash"],
+        },
+      ];
+
       try {
         const response = await fetch('https://pub-0dc3e1677e894f07bbea11b17a29e032.r2.dev/providers.json');
         if (response.ok) {
           const data = await response.json();
-          setProviderTemplates(data || []);
+          setProviderTemplates([...builtinTemplates, ...(data || [])]);
         } else {
-          console.error('Failed to fetch provider templates');
+          setProviderTemplates(builtinTemplates);
         }
       } catch (error) {
         console.error('Failed to fetch provider templates:', error);
+        setProviderTemplates(builtinTemplates);
       }
     };
 
