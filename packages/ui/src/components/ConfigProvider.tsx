@@ -90,13 +90,13 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
             powerline: { modules: [] }
           },
           Router: data.Router && typeof data.Router === 'object' ? {
-            default: data.Router.default ?? '',
-            background: data.Router.background ?? '',
-            think: data.Router.think ?? '',
-            longContext: data.Router.longContext ?? '',
+            default: Array.isArray(data.Router.default) ? data.Router.default : (data.Router.default ?? ''),
+            background: Array.isArray(data.Router.background) ? data.Router.background : (data.Router.background ?? ''),
+            think: Array.isArray(data.Router.think) ? data.Router.think : (data.Router.think ?? ''),
+            longContext: Array.isArray(data.Router.longContext) ? data.Router.longContext : (data.Router.longContext ?? ''),
             longContextThreshold: typeof data.Router.longContextThreshold === 'number' ? data.Router.longContextThreshold : 60000,
-            webSearch: data.Router.webSearch ?? '',
-            image: data.Router.image ?? ''
+            webSearch: Array.isArray(data.Router.webSearch) ? data.Router.webSearch : (data.Router.webSearch ?? ''),
+            image: Array.isArray(data.Router.image) ? data.Router.image : (data.Router.image ?? '')
           } : {
             default: '',
             background: '',
