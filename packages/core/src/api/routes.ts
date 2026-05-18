@@ -133,7 +133,27 @@ function getArrayValue(val: any): string[] {
  * Internal helper to find the next model to try without sending a request
  */
 async function getFallbackModel(req: FastifyRequest, fastify: FastifyInstance, error: any) {
-  if (error.code !== 'provider_response_error' && error.statusCode !== 403 && error.statusCode !== 400) {
+  // 识别网络连接、超时、解析崩溃等系统级或环境级异常
+  const isSystemOrNetworkError = !error.statusCode && (
+    error.code ||
+    error.name === "TypeError" ||
+    error.name === "SyntaxError" ||
+    error.message?.includes("fetch") ||
+    error.message?.includes("connect") ||
+    error.message?.includes("timeout") ||
+    error.message?.includes("JSON")
+  );
+
+  // 触发 Fallback 的条件：
+  // 1. 规范的上游响应错误 (provider_response_error)
+  // 2. 任何 4xx 或 5xx HTTP 状态码 (包括 400, 403, 429, 500, 502, 503, 504)
+  // 3. 网络故障、解析崩溃或系统异常
+  const shouldFallback = 
+    error.code === 'provider_response_error' ||
+    (error.statusCode >= 400 && error.statusCode < 600) ||
+    isSystemOrNetworkError;
+
+  if (!shouldFallback) {
     return null;
   }
 
@@ -344,7 +364,12 @@ async function sendRequestToProvider(
 
   // Handle request errors
   if (!response.ok) {
-    const errorText = await response.text();
+    let errorText: string;
+    try {
+      errorText = await response.text();
+    } catch {
+      errorText = `(failed to read error body)`;
+    }
     fastify.log.error(
       `[provider_response_error] Error from provider(${provider.name},${requestBody.model}: ${response.status}): ${errorText}`,
     );
@@ -437,8 +462,17 @@ function formatResponse(response: any, reply: FastifyReply, body: any) {
     reply.header("Connection", "keep-alive");
     return reply.send(response.body);
   } else {
-    // Handle regular JSON response
-    return response.json();
+    // 防御性读取响应文本，避免非 JSON 文本导致的 SyntaxError 崩溃
+    const rawText = await response.text();
+    try {
+      return JSON.parse(rawText);
+    } catch (jsonError: any) {
+      throw createApiError(
+        `Failed to parse JSON response from provider: ${jsonError.message}. Raw response: ${rawText.substring(0, 500)}`,
+        response.status || 500,
+        "provider_response_error"
+      );
+    }
   }
 }
 

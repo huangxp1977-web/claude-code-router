@@ -843,7 +843,7 @@ export function Providers() {
                   <div className="space-y-2 mt-2">
                     <div className="text-sm font-medium text-gray-700">{t("providers.selected_transformers")}</div>
                     {editingProvider.transformer.use.map((transformer: string | (string | Record<string, unknown> | { max_tokens: number })[], transformerIndex: number) => (
-                      <div key={transformerIndex} className="border rounded-md p-3">
+                      <div key={transformerIndex} className="border-2 border-slate-300 shadow-sm bg-white rounded-md p-3">
                         <div className="flex gap-2 items-center mb-2">
                           <div className="flex-1 bg-gray-50 rounded p-2 text-sm">
                             {typeof transformer === 'string' ? transformer : Array.isArray(transformer) ? String(transformer[0]) : String(transformer)}
@@ -862,7 +862,7 @@ export function Providers() {
                         </div>
                         
                         {/* Transformer-specific Parameters */}
-                        <div className="mt-2 pl-4 border-l-2 border-gray-200">
+                        <div className="mt-2 pl-4 border-l-2 border-slate-400">
                           <Label className="text-sm">{t("providers.transformer_parameters")}</Label>
                           <div className="space-y-2 mt-1">
                             <div className="flex gap-2">
@@ -934,7 +934,7 @@ export function Providers() {
                               return Object.keys(params).length > 0 ? (
                                 <div className="space-y-1">
                                   {Object.entries(params).map(([key, value]) => (
-                                    <div key={key} className="flex items-center justify-between bg-gray-50 rounded p-2">
+                                    <div key={key} className="flex items-center justify-between bg-slate-100/70 border border-slate-200 rounded p-2">
                                       <div className="text-sm">
                                         <span className="font-medium">{key}:</span> {String(value)}
                                       </div>
@@ -970,8 +970,8 @@ export function Providers() {
                   <Label>{t("providers.model_transformers")}</Label>
                   <div className="space-y-3">
                     {(editingProvider.models || []).map((model: string, modelIndex: number) => (
-                      <div key={modelIndex} className="border rounded-md p-3">
-                        <div className="font-medium text-sm mb-2">{model}</div>
+                      <div key={modelIndex} className="border border-slate-300 bg-slate-50/50 rounded-lg p-4 mb-4 shadow-sm">
+                        <div className="font-medium text-sm mb-2 text-slate-800">{model}</div>
                         {/* Add new transformer */}
                         <div className="flex gap-2">
                           <div className="flex-1 flex gap-2">
@@ -997,7 +997,7 @@ export function Providers() {
                           <div className="space-y-2 mt-2">
                             <div className="text-sm font-medium text-gray-700">{t("providers.selected_transformers")}</div>
                             {editingProvider.transformer[model].use.map((transformer: string | (string | Record<string, unknown> | { max_tokens: number })[], transformerIndex: number) => (
-                              <div key={transformerIndex} className="border rounded-md p-3">
+                              <div key={transformerIndex} className="border-2 border-slate-300 shadow-sm bg-white rounded-md p-3">
                                 <div className="flex gap-2 items-center mb-2">
                                   <div className="flex-1 bg-gray-50 rounded p-2 text-sm">
                                     {typeof transformer === 'string' ? transformer : Array.isArray(transformer) ? String(transformer[0]) : String(transformer)}
@@ -1016,7 +1016,7 @@ export function Providers() {
                                 </div>
                                 
                                 {/* Transformer-specific Parameters */}
-                                <div className="mt-2 pl-4 border-l-2 border-gray-200">
+                                <div className="mt-2 pl-4 border-l-2 border-slate-400">
                                   <Label className="text-sm">{t("providers.transformer_parameters")}</Label>
                                   <div className="space-y-2 mt-1">
                                     <div className="flex gap-2">
@@ -1088,7 +1088,7 @@ export function Providers() {
                                       return Object.keys(params).length > 0 ? (
                                         <div className="space-y-1">
                                           {Object.entries(params).map(([key, value]) => (
-                                            <div key={key} className="flex items-center justify-between bg-gray-50 rounded p-2">
+                                            <div key={key} className="flex items-center justify-between bg-slate-100/70 border border-slate-200 rounded p-2">
                                               <div className="text-sm">
                                                 <span className="font-medium">{key}:</span> {String(value)}
                                               </div>
