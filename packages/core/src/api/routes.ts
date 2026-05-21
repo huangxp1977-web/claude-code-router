@@ -92,8 +92,8 @@ async function handleTransformerEndpoint(
         { req }
       );
 
-      // Format and return response
-      return formatResponse(finalResponse, reply, currentBody);
+      // Format and return response (await required to catch errors for Fallback mechanism)
+      return await formatResponse(finalResponse, reply, currentBody);
     } catch (error: any) {
       retryCount++;
       req.log.warn(`[Fallback] Error on attempt ${retryCount}: ${error.message?.substring(0, 100)}`);
@@ -448,7 +448,7 @@ async function processResponseTransformers(
  * Format and return response
  * Handle HTTP status codes, format streaming and regular responses
  */
-function formatResponse(response: any, reply: FastifyReply, body: any) {
+async function formatResponse(response: any, reply: FastifyReply, body: any) {
   // Set HTTP status code
   if (!response.ok) {
     reply.code(response.status);

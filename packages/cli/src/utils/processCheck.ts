@@ -13,29 +13,35 @@ export async function isProcessRunning(pid: number): Promise<boolean> {
     }
 }
 
-export function incrementReferenceCount() {
-    let count = 0;
-    if (existsSync(REFERENCE_COUNT_FILE)) {
-        count = parseInt(readFileSync(REFERENCE_COUNT_FILE, 'utf-8')) || 0;
+function readReferenceCountSafe(): number {
+    try {
+        if (!existsSync(REFERENCE_COUNT_FILE)) return 0;
+        return parseInt(readFileSync(REFERENCE_COUNT_FILE, 'utf-8')) || 0;
+    } catch {
+        return 0;
     }
-    count++;
-    writeFileSync(REFERENCE_COUNT_FILE, count.toString());
+}
+
+function writeReferenceCountSafe(count: number) {
+    try {
+        writeFileSync(REFERENCE_COUNT_FILE, count.toString());
+    } catch {
+        // Silently ignore permission errors (multi-user scenarios)
+    }
+}
+
+export function incrementReferenceCount() {
+    const count = readReferenceCountSafe() + 1;
+    writeReferenceCountSafe(count);
 }
 
 export function decrementReferenceCount() {
-    let count = 0;
-    if (existsSync(REFERENCE_COUNT_FILE)) {
-        count = parseInt(readFileSync(REFERENCE_COUNT_FILE, 'utf-8')) || 0;
-    }
-    count = Math.max(0, count - 1);
-    writeFileSync(REFERENCE_COUNT_FILE, count.toString());
+    const count = Math.max(0, readReferenceCountSafe() - 1);
+    writeReferenceCountSafe(count);
 }
 
 export function getReferenceCount(): number {
-    if (!existsSync(REFERENCE_COUNT_FILE)) {
-        return 0;
-    }
-    return parseInt(readFileSync(REFERENCE_COUNT_FILE, 'utf-8')) || 0;
+    return readReferenceCountSafe();
 }
 
 export function isServiceRunning(): boolean {

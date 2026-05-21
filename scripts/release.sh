@@ -96,6 +96,15 @@ publish_npm() {
   mkdir -p "$BACKUP_DIR"
   cp "$CLI_DIR/package.json" "$BACKUP_DIR/package.json.bak"
 
+  # 无论成功失败，退出时恢复原始 package.json
+  restore_package_json() {
+    if [ -f "$BACKUP_DIR/package.json.original" ]; then
+      mv "$BACKUP_DIR/package.json.original" "$CLI_DIR/package.json" 2>/dev/null || true
+    fi
+    rm -f "$CLI_DIR/package.publish.json"
+  }
+  trap restore_package_json EXIT
+
   # 获取 @thxp/llms 的实际版本号（去掉 workspace: 前缀）
   LLMS_VERSION=$(node -p "require('$ROOT_DIR/packages/core/package.json').version")
 
@@ -132,9 +141,6 @@ publish_npm() {
     echo "执行 npm publish..."
     npm publish --access public
   )
-
-  # 恢复原始 package.json
-  mv "$BACKUP_DIR/package.json.original" "$CLI_DIR/package.json"
 
   echo ""
   echo "✅ npm 包发布成功!"
