@@ -187,6 +187,15 @@ class ApiClient {
     return this.delete<void>(`/api/providers/${index}`);
   }
 
+  // Fetch available models from a provider's API
+  async fetchProviderModels(apiBaseUrl: string, apiKey: string, transformer?: string): Promise<{ models?: string[]; error?: string }> {
+    return this.post<{ models?: string[]; error?: string }>('/providers/fetch-models', {
+      api_base_url: apiBaseUrl,
+      api_key: apiKey,
+      transformer,
+    });
+  }
+
   // Get transformers
   async getTransformers(): Promise<Transformer[]> {
     return this.get<Transformer[]>('/api/transformers');

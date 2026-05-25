@@ -226,7 +226,7 @@ const getUseModel = async (
   // The priority of websearch must be higher than thinking.
   if (
     Array.isArray(req.body.tools) &&
-    req.body.tools.some((tool: any) => tool.type?.startsWith("web_search")) &&
+    req.body.tools.some((tool: any) => tool.type?.startsWith("web_search") || tool.name === "WebSearch") &&
     Router?.webSearch
   ) {
     const model = getValidModel(Router.webSearch);

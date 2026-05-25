@@ -38,7 +38,38 @@ export function MultiCombobox({
   emptyPlaceholder = "No options found.",
 }: MultiComboboxProps) {
   const [open, setOpen] = React.useState(false)
-  
+  const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null)
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = "move"
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault()
+    if (draggedIndex !== null && draggedIndex !== targetIndex) {
+      const newValue = [...value]
+      const [moved] = newValue.splice(draggedIndex, 1)
+      newValue.splice(targetIndex, 0, moved)
+      onChange(newValue)
+    }
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
   const handleSelect = (currentValue: string) => {
     if (value.includes(currentValue)) {
       onChange(value.filter(v => v !== currentValue))
@@ -55,10 +86,23 @@ export function MultiCombobox({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1">
-        {value.map((val) => {
+        {value.map((val, index) => {
           const option = options.find(opt => opt.value === val)
           return (
-            <Badge key={val} variant="outline" className="font-normal">
+            <Badge
+              key={val}
+              variant="outline"
+              className={cn(
+                "font-normal cursor-move select-none transition-all",
+                draggedIndex === index && "opacity-40 scale-95 border-dashed",
+                dragOverIndex === index && "border-blue-400 bg-blue-50"
+              )}
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+            >
               {option?.label || val}
               <button
                 onClick={(e) => removeValue(val, e)}

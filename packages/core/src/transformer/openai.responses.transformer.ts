@@ -157,15 +157,12 @@ export class OpenAIResponsesTransformer implements Transformer {
 
     if (Array.isArray(request.tools)) {
       const webSearch = request.tools.find(
-        (tool) => tool.function.name === "web_search"
+        (tool) => tool.function.name === "web_search" || tool.function.name === "WebSearch"
       );
 
       (request as any).tools = request.tools
-        .filter((tool) => tool.function.name !== "web_search")
+        .filter((tool) => tool.function.name !== "web_search" && tool.function.name !== "WebSearch")
         .map((tool) => {
-          if (tool.function.name === "WebSearch") {
-            delete tool.function.parameters.properties.allowed_domains;
-          }
           if (tool.function.name === "Edit") {
             return {
               type: tool.type,

@@ -352,7 +352,7 @@ export function DebugPage() {
                       </div>
                       <div
                         id="fullscreen-headers"
-                        className={`${fullscreenEditor === 'headers' ? 'h-full' : 'flex-1'} border border-gray-300 rounded-md overflow-hidden relative`}
+                        className={`${fullscreenEditor === 'headers' ? 'h-full' : 'flex-1'} border border-gray-400 rounded-md overflow-hidden relative`}
                       >
                         <MonacoEditor
                           height="100%"
@@ -396,7 +396,7 @@ export function DebugPage() {
                       </div>
                       <div
                         id="fullscreen-body"
-                        className={`${fullscreenEditor === 'body' ? 'h-full' : 'flex-1'} border border-gray-300 rounded-md overflow-hidden relative`}
+                        className={`${fullscreenEditor === 'body' ? 'h-full' : 'flex-1'} border border-gray-400 rounded-md overflow-hidden relative`}
                       >
                         <MonacoEditor
                           height="100%"

@@ -244,7 +244,7 @@ export function buildRequestBody(
 ): Record<string, any> {
   const tools = [];
   const functionDeclarations = request.tools
-    ?.filter((tool) => tool.function.name !== "web_search")
+    ?.filter((tool) => tool.function.name !== "web_search" && tool.function.name !== "WebSearch")
     ?.map((tool) => {
       return {
         name: tool.function.name,
@@ -260,7 +260,7 @@ export function buildRequestBody(
     );
   }
   const webSearch = request.tools?.find(
-    (tool) => tool.function.name === "web_search"
+    (tool) => tool.function.name === "web_search" || tool.function.name === "WebSearch"
   );
   if (webSearch) {
     tools.push({

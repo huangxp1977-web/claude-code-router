@@ -38,7 +38,7 @@ export function Toast({ message, type, onClose }: ToastProps) {
       case 'warning':
         return 'bg-yellow-100 border-yellow-200';
       default:
-        return 'bg-gray-100 border-gray-200';
+        return 'bg-gray-100 border-gray-300';
     }
   };
 

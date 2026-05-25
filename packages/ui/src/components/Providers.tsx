@@ -14,10 +14,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { X, Trash2, Plus, Eye, EyeOff, Search, XCircle } from "lucide-react";
+import { X, Trash2, Plus, Eye, EyeOff, Search, XCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
 import { ComboInput } from "@/components/ui/combo-input";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import { Toast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
 import type { Provider } from "@/types";
 
@@ -87,6 +103,14 @@ export function Providers() {
   const [nameError, setNameError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const comboInputRef = useRef<HTMLInputElement>(null);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+  const [modelSelectOpen, setModelSelectOpen] = useState(false);
+  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
+  // Drag-and-drop state for model badges
+  const [draggedModelIndex, setDraggedModelIndex] = useState<number | null>(null);
+  const [dragOverModelIndex, setDragOverModelIndex] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
 
   useEffect(() => {
     const fetchProviderTemplates = async () => {
@@ -98,13 +122,27 @@ export function Providers() {
           api_key: "",
           models: ["sensenova-6.7-flash-lite", "deepseek-v4-flash"],
         },
+        {
+          name: "Google",
+          api_base_url: "https://generativelanguage.googleapis.com/v1beta/models/",
+          api_key: "",
+          models: ["gemini-3-flash-preview", "gemini-2.5-flash"],
+        },
+        {
+          name: "xiaomimimo",
+          api_base_url: "https://token-plan-cn.xiaomimimo.com/anthropic/v1/messages",
+          api_key: "",
+          models: ["mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-pro", "mimo-v2-omni"],
+        },
       ];
 
       try {
         const response = await fetch('https://pub-0dc3e1677e894f07bbea11b17a29e032.r2.dev/providers.json');
         if (response.ok) {
           const data = await response.json();
-          setProviderTemplates([...builtinTemplates, ...(data || [])]);
+          const builtinNames = new Set(builtinTemplates.map(t => t.name.toLowerCase()));
+          const remoteTemplates = (data || []).filter((t: ProviderType) => !builtinNames.has(t.name.toLowerCase()));
+          setProviderTemplates([...builtinTemplates, ...remoteTemplates]);
         } else {
           setProviderTemplates(builtinTemplates);
         }
@@ -276,6 +314,9 @@ export function Providers() {
     setIsNewProvider(false);
     setApiKeyError(null);
     setNameError(null);
+    setFetchedModels([]);
+    setSelectedModels(new Set());
+    setModelSelectOpen(false);
   };
 
   // Handle deletion by setting the correct index in the state
@@ -597,6 +638,53 @@ export function Providers() {
     }
   };
 
+  const fetchAvailableModels = async () => {
+    if (!editingProvider) return;
+    setIsFetchingModels(true);
+    try {
+      // Determine transformer name from provider config
+      const transformerName = editingProvider.transformer?.use?.[0];
+      const result = await api.fetchProviderModels(
+        editingProvider.api_base_url,
+        editingProvider.api_key,
+        typeof transformerName === "string" ? transformerName : undefined
+      );
+      if (result.error) {
+        setToast({ message: `${t("providers.fetch_models_failed")}: ${result.error}`, type: 'error' });
+        return;
+      }
+      setFetchedModels(result.models || []);
+      setSelectedModels(new Set(editingProvider.models || []));
+      if (editingProviderIndex !== null) {
+        setHasFetchedModels(prev => ({ ...prev, [editingProviderIndex]: true }));
+      }
+    } catch (err: any) {
+      setToast({ message: `${t("providers.fetch_models_failed")}: ${err?.message}`, type: 'error' });
+    } finally {
+      setIsFetchingModels(false);
+    }
+  };
+
+  const handleAddSelectedModels = () => {
+    if (!editingProvider || !editingProviderData) return;
+    const newModels = [...(editingProviderData.models || [])];
+    for (const model of selectedModels) {
+      if (!newModels.includes(model)) {
+        newModels.push(model);
+      }
+    }
+    setEditingProviderData({ ...editingProviderData, models: newModels });
+    setModelSelectOpen(false);
+  };
+
+  const handleReorderModels = (fromIndex: number, toIndex: number) => {
+    if (!editingProviderData || fromIndex === toIndex) return;
+    const models = [...(editingProviderData.models || [])];
+    const [moved] = models.splice(fromIndex, 1);
+    models.splice(toIndex, 0, moved);
+    setEditingProviderData({ ...editingProviderData, models });
+  };
+
   const editingProvider = editingProviderData || (editingProviderIndex !== null ? validProviders[editingProviderIndex] : null);
 
   // Filter providers based on search term
@@ -620,6 +708,8 @@ export function Providers() {
   });
 
   return (
+    <>
+    {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     <Card className="flex h-full flex-col rounded-lg border shadow-sm">
       <CardHeader className="flex flex-col border-b p-4 gap-3">
         <div className="flex flex-row items-center justify-between">
@@ -740,73 +830,124 @@ export function Providers() {
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      {hasFetchedModels[editingProviderIndex] ? (
-                        <ComboInput
-                          ref={comboInputRef}
-                          options={(editingProvider.models || []).map((model: string) => ({ label: model, value: model }))}
-                          value=""
-                          onChange={() => {
-                            // 只更新输入值，不添加模型
-                          }}
-                          onEnter={(value) => {
-                            if (editingProviderIndex !== null) {
-                              handleAddModel(editingProviderIndex, value);
-                            }
-                          }}
-                          inputPlaceholder={t("providers.models_placeholder")}
-                        />
-                      ) : (
-                        <Input 
-                          id="models" 
-                          placeholder={t("providers.models_placeholder")} 
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && e.currentTarget.value.trim() && editingProviderIndex !== null) {
-                              handleAddModel(editingProviderIndex, e.currentTarget.value);
-                              e.currentTarget.value = '';
-                            }
-                          }}
-                        />
-                      )}
+                      <Input
+                        id="models"
+                        placeholder={t("providers.models_placeholder")}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && e.currentTarget.value.trim() && editingProviderIndex !== null) {
+                            handleAddModel(editingProviderIndex, e.currentTarget.value);
+                            e.currentTarget.value = '';
+                          }
+                        }}
+                      />
                     </div>
-                    <Button 
+                    <Button
                       onClick={() => {
-                        if (hasFetchedModels[editingProviderIndex] && comboInputRef.current) {
-                          // 使用ComboInput的逻辑
-                          const comboInput = comboInputRef.current as unknown as { getCurrentValue(): string; clearInput(): void };
-                          const currentValue = comboInput.getCurrentValue();
-                          if (currentValue && currentValue.trim() && editingProviderIndex !== null) {
-                            handleAddModel(editingProviderIndex, currentValue.trim());
-                            // 清空ComboInput
-                            comboInput.clearInput();
-                          }
-                        } else {
-                          // 使用普通Input的逻辑
-                          const input = document.getElementById('models') as HTMLInputElement;
-                          if (input && input.value.trim() && editingProviderIndex !== null) {
-                            handleAddModel(editingProviderIndex, input.value);
-                            input.value = '';
-                          }
+                        const input = document.getElementById('models') as HTMLInputElement;
+                        if (input && input.value.trim() && editingProviderIndex !== null) {
+                          handleAddModel(editingProviderIndex, input.value);
+                          input.value = '';
                         }
                       }}
                     >
                       {t("providers.add_model")}
                     </Button>
-                    {/* <Button 
-                      onClick={() => editingProvider && fetchAvailableModels(editingProvider)}
+                    <Button
+                      onClick={fetchAvailableModels}
                       disabled={isFetchingModels}
                       variant="outline"
                     >
-                      {isFetchingModels ? t("providers.fetching_models") : t("providers.fetch_available_models")}
-                    </Button> */}
+                      {isFetchingModels ? (
+                        <><Loader2 className="mr-1 h-4 w-4 animate-spin" />{t("providers.fetching_models")}</>
+                      ) : t("providers.fetch_available_models")}
+                    </Button>
                   </div>
+                  {fetchedModels.length > 0 && (
+                    <Popover open={modelSelectOpen} onOpenChange={setModelSelectOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-muted-foreground">
+                          <Search className="mr-2 h-4 w-4" />
+                          {t("providers.select_from_available")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder={t("providers.models_placeholder")} />
+                          <CommandList className="max-h-64">
+                            <CommandEmpty>{t("providers.no_models_fetched")}</CommandEmpty>
+                            <CommandGroup>
+                              {fetchedModels.map((model) => (
+                                <CommandItem
+                                  key={model}
+                                  value={model}
+                                  onSelect={() => {
+                                    setSelectedModels(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(model)) next.delete(model);
+                                      else next.add(model);
+                                      return next;
+                                    });
+                                  }}
+                                  className="flex items-center gap-2"
+                                >
+                                  <Checkbox
+                                    checked={selectedModels.has(model)}
+                                    onCheckedChange={() => {}}
+                                    className="pointer-events-none"
+                                  />
+                                  <span>{model}</span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                          <div className="border-t p-2">
+                            <Button size="sm" className="w-full" onClick={handleAddSelectedModels}>
+                              {t("providers.add_selected")} ({selectedModels.size})
+                            </Button>
+                          </div>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  )}
                   <div className="flex flex-wrap gap-2 pt-2">
                     {(editingProvider.models || []).map((model: string, modelIndex: number) => (
-                      <Badge key={modelIndex} variant="outline" className="font-normal flex items-center gap-1">
+                      <Badge
+                        key={model}
+                        variant="outline"
+                        className={cn(
+                          "font-normal flex items-center gap-1 cursor-move select-none transition-all",
+                          draggedModelIndex === modelIndex && "opacity-40 scale-95 border-dashed",
+                          dragOverModelIndex === modelIndex && "border-blue-400 bg-blue-50"
+                        )}
+                        draggable
+                        onDragStart={() => setDraggedModelIndex(modelIndex)}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          if (draggedModelIndex !== null && draggedModelIndex !== modelIndex) {
+                            setDragOverModelIndex(modelIndex);
+                          }
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (draggedModelIndex !== null && draggedModelIndex !== modelIndex) {
+                            handleReorderModels(draggedModelIndex, modelIndex);
+                          }
+                          setDraggedModelIndex(null);
+                          setDragOverModelIndex(null);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedModelIndex(null);
+                          setDragOverModelIndex(null);
+                        }}
+                      >
                         {model}
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           className="ml-1 rounded-full hover:bg-gray-200"
-                          onClick={() => editingProviderIndex !== null && handleRemoveModel(editingProviderIndex, modelIndex)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            editingProviderIndex !== null && handleRemoveModel(editingProviderIndex, modelIndex);
+                          }}
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -843,7 +984,7 @@ export function Providers() {
                   <div className="space-y-2 mt-2">
                     <div className="text-sm font-medium text-gray-700">{t("providers.selected_transformers")}</div>
                     {editingProvider.transformer.use.map((transformer: string | (string | Record<string, unknown> | { max_tokens: number })[], transformerIndex: number) => (
-                      <div key={transformerIndex} className="border-2 border-slate-300 shadow-sm bg-white rounded-md p-3">
+                      <div key={transformerIndex} className="border-2 border-slate-400 shadow-sm bg-white rounded-md p-3">
                         <div className="flex gap-2 items-center mb-2">
                           <div className="flex-1 bg-gray-50 rounded p-2 text-sm">
                             {typeof transformer === 'string' ? transformer : Array.isArray(transformer) ? String(transformer[0]) : String(transformer)}
@@ -934,7 +1075,7 @@ export function Providers() {
                               return Object.keys(params).length > 0 ? (
                                 <div className="space-y-1">
                                   {Object.entries(params).map(([key, value]) => (
-                                    <div key={key} className="flex items-center justify-between bg-slate-100/70 border border-slate-200 rounded p-2">
+                                    <div key={key} className="flex items-center justify-between bg-slate-100/70 border border-slate-300 rounded p-2">
                                       <div className="text-sm">
                                         <span className="font-medium">{key}:</span> {String(value)}
                                       </div>
@@ -970,7 +1111,7 @@ export function Providers() {
                   <Label>{t("providers.model_transformers")}</Label>
                   <div className="space-y-3">
                     {(editingProvider.models || []).map((model: string, modelIndex: number) => (
-                      <div key={modelIndex} className="border border-slate-300 bg-slate-50/50 rounded-lg p-4 mb-4 shadow-sm">
+                      <div key={modelIndex} className="border border-slate-400 bg-slate-50/50 rounded-lg p-4 mb-4 shadow-sm">
                         <div className="font-medium text-sm mb-2 text-slate-800">{model}</div>
                         {/* Add new transformer */}
                         <div className="flex gap-2">
@@ -997,7 +1138,7 @@ export function Providers() {
                           <div className="space-y-2 mt-2">
                             <div className="text-sm font-medium text-gray-700">{t("providers.selected_transformers")}</div>
                             {editingProvider.transformer[model].use.map((transformer: string | (string | Record<string, unknown> | { max_tokens: number })[], transformerIndex: number) => (
-                              <div key={transformerIndex} className="border-2 border-slate-300 shadow-sm bg-white rounded-md p-3">
+                              <div key={transformerIndex} className="border-2 border-slate-400 shadow-sm bg-white rounded-md p-3">
                                 <div className="flex gap-2 items-center mb-2">
                                   <div className="flex-1 bg-gray-50 rounded p-2 text-sm">
                                     {typeof transformer === 'string' ? transformer : Array.isArray(transformer) ? String(transformer[0]) : String(transformer)}
@@ -1088,7 +1229,7 @@ export function Providers() {
                                       return Object.keys(params).length > 0 ? (
                                         <div className="space-y-1">
                                           {Object.entries(params).map(([key, value]) => (
-                                            <div key={key} className="flex items-center justify-between bg-slate-100/70 border border-slate-200 rounded p-2">
+                                            <div key={key} className="flex items-center justify-between bg-slate-100/70 border border-slate-300 rounded p-2">
                                               <div className="text-sm">
                                                 <span className="font-medium">{key}:</span> {String(value)}
                                               </div>
@@ -1156,5 +1297,6 @@ export function Providers() {
         </DialogContent>
       </Dialog>
     </Card>
+    </>
   );
 }

@@ -113,6 +113,103 @@ export const createServer = async (config: any): Promise<any> => {
     return { success: true, message: "Config saved successfully" };
   });
 
+  // Fetch available models from a provider's API
+  app.post("/api/providers/fetch-models", async (req: any, reply: any) => {
+    const { api_base_url, api_key, transformer } = req.body || {};
+
+    if (!api_base_url || !api_key) {
+      return reply.status(400).send({ error: "api_base_url and api_key are required" });
+    }
+
+    // Normalize URL: strip endpoint action suffixes, keep version prefixes like /v1, /v1beta
+    function normalizeModelsUrl(baseUrl: string): string {
+      let url = baseUrl.replace(/\/+$/, "");
+      const suffixes = [
+        "/chat/completions",
+        "/messages",
+        "/completions",
+      ];
+      for (const suffix of suffixes) {
+        if (url.endsWith(suffix)) {
+          url = url.slice(0, -suffix.length);
+          break;
+        }
+      }
+      // Gemini style: .../v1beta/models/ -> .../v1beta/models
+      if (url.endsWith("/models/")) {
+        url = url.slice(0, -1);
+      }
+      return url + "/models";
+    }
+
+    // Determine auth headers based on URL and transformer
+    function getAuthHeaders(baseUrl: string, apiKey: string, transformerName?: string): Record<string, string> {
+      if (baseUrl.includes("generativelanguage.googleapis.com")) {
+        return { "x-goog-api-key": apiKey };
+      }
+      if (transformerName === "Anthropic" || baseUrl.includes("anthropic")) {
+        return { "x-api-key": apiKey };
+      }
+      return { Authorization: `Bearer ${apiKey}` };
+    }
+
+    // Parse model list from various response formats
+    function extractModels(data: any): string[] {
+      const models: string[] = [];
+
+      // OpenAI format: { data: [{ id: "model-name" }] }
+      if (Array.isArray(data?.data)) {
+        for (const item of data.data) {
+          if (item.id) models.push(item.id);
+        }
+      }
+      // Gemini format: { models: [{ name: "models/model-name" }] }
+      else if (Array.isArray(data?.models)) {
+        for (const item of data.models) {
+          const name = item.name || item.id || "";
+          models.push(name.replace(/^models\//, ""));
+        }
+      }
+      // Direct array: [{ id: "xxx" }]
+      else if (Array.isArray(data)) {
+        for (const item of data) {
+          if (typeof item === "string") models.push(item);
+          else if (item.id) models.push(item.id);
+        }
+      }
+
+      return [...new Set(models)].sort();
+    }
+
+    try {
+      const modelsUrl = normalizeModelsUrl(api_base_url);
+      const headers = getAuthHeaders(api_base_url, api_key, transformer);
+
+      const response = await fetch(modelsUrl, {
+        method: "GET",
+        headers: { ...headers, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        return reply.status(response.status).send({
+          error: `Provider returned ${response.status}: ${text.slice(0, 200)}`,
+        });
+      }
+
+      const data = await response.json();
+      const models = extractModels(data);
+
+      return { models };
+    } catch (err: any) {
+      const message = err?.name === "TimeoutError"
+        ? "Request timed out after 15s"
+        : err?.message || "Unknown error";
+      return reply.status(502).send({ error: message });
+    }
+  });
+
   // Register static file serving with caching
   app.register(fastifyStatic, {
     root: join(__dirname, "..", "dist"),
