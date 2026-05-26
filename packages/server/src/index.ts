@@ -1,4 +1,4 @@
-import { existsSync } from "fs";
+import { existsSync, readdirSync, statSync, unlinkSync } from "fs";
 import { writeFile } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
@@ -116,6 +116,23 @@ async function getServer(options: RunOptions = {}) {
   const servicePort = process.env.SERVICE_PORT
     ? parseInt(process.env.SERVICE_PORT)
     : port;
+
+  // Clean up log files older than 7 days on CCR start
+  const LOGS_DIR = join(HOME_DIR, "logs");
+  if (existsSync(LOGS_DIR)) {
+    const LOG_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    readdirSync(LOGS_DIR)
+      .filter(f => f.endsWith(".log"))
+      .forEach(f => {
+        try {
+          const fp = join(LOGS_DIR, f);
+          if (now - statSync(fp).mtimeMs > LOG_MAX_AGE_MS) {
+            unlinkSync(fp);
+          }
+        } catch {}
+      });
+  }
 
   // Configure logger based on config settings or external options
   const pad = (num: number) => (num > 9 ? "" : "0") + num;

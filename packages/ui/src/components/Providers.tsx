@@ -42,6 +42,17 @@ interface ProviderType extends Provider {}
 // Router fields that may reference provider models
 const ROUTER_FIELDS = ['default', 'background', 'think', 'longContext', 'webSearch', 'image'] as const;
 
+// Transformers that accept user-configurable parameters
+const TRANSFORMERS_WITH_PARAMS = ['anthropic', 'customparams', 'maxtoken', 'openrouter', 'reasoning', 'sampling', 'vercel'];
+
+// Fixed parameter presets for transformers — keys are pre-filled and disabled
+const TRANSFORMERS_FIXED_PARAMS: Record<string, string[]> = {
+  maxtoken: ['max_tokens'],
+  reasoning: ['enable'],
+  anthropic: ['UseBearer'],
+  sampling: ['max_tokens', 'temperature', 'top_p', 'top_k', 'repetition_penalty'],
+};
+
 /**
  * Clean up Router references when models are removed from a provider or a provider is deleted.
  * Handles both string (single model) and array (multi-model rotation) Router field values.
@@ -591,22 +602,18 @@ export function Providers() {
     }
   };
 
-    const handleTemplateImport = (value: string) => {
-    if (!value) return;
-    try {
-      const selectedTemplate = JSON.parse(value);
-      if (selectedTemplate) {
-        const currentName = editingProviderData?.name;
-        const newProviderData = JSON.parse(JSON.stringify(selectedTemplate));
+    const handleTemplateImport = (templateName: string) => {
+    if (!templateName) return;
+    const selectedTemplate = providerTemplates.find(p => p.name.toLowerCase() === templateName.toLowerCase());
+    if (selectedTemplate) {
+      const currentName = editingProviderData?.name;
+      const newProviderData = JSON.parse(JSON.stringify(selectedTemplate));
 
-        if (!isNewProvider && currentName) {
-          newProviderData.name = currentName;
-        }
-        
-        setEditingProviderData(newProviderData as ProviderType);
+      if (!isNewProvider && currentName) {
+        newProviderData.name = currentName;
       }
-    } catch (e) {
-      console.error("Failed to parse template", e);
+
+      setEditingProviderData(newProviderData as ProviderType);
     }
   };
 
@@ -761,7 +768,7 @@ export function Providers() {
                 <div className="space-y-2">
                   <Label>{t("providers.import_from_template")}</Label>
                   <Combobox
-                    options={providerTemplates.map(p => ({ label: p.name, value: JSON.stringify(p) }))}
+                    options={providerTemplates.map(p => ({ label: p.name, value: p.name }))}
                     value=""
                     onChange={handleTemplateImport}
                     placeholder={t("providers.select_template")}
@@ -983,7 +990,15 @@ export function Providers() {
                 {editingProvider.transformer?.use && editingProvider.transformer.use.length > 0 && (
                   <div className="space-y-2 mt-2">
                     <div className="text-sm font-medium text-gray-700">{t("providers.selected_transformers")}</div>
-                    {editingProvider.transformer.use.map((transformer: string | (string | Record<string, unknown> | { max_tokens: number })[], transformerIndex: number) => (
+                    {editingProvider.transformer.use.map((transformer: string | (string | Record<string, unknown> | { max_tokens: number })[], transformerIndex: number) => {
+                      const transformerName = typeof transformer === 'string' ? transformer : Array.isArray(transformer) ? String(transformer[0]) : String(transformer);
+                      const existingParams = Array.isArray(transformer) && transformer.length > 1 && typeof transformer[1] === 'object' && transformer[1] !== null ? transformer[1] as Record<string, unknown> : {};
+                      const showProviderParams = TRANSFORMERS_WITH_PARAMS.includes(transformerName.toLowerCase()) || Object.keys(existingParams).length > 0;
+                      const providerAllowedKeys = TRANSFORMERS_FIXED_PARAMS[transformerName.toLowerCase()];
+                      const providerUnconfiguredKeys = providerAllowedKeys ? providerAllowedKeys.filter(k => !(k in existingParams)) : [];
+                      const providerHideInput = providerAllowedKeys && providerUnconfiguredKeys.length === 0;
+                      const providerPrefilledName = providerUnconfiguredKeys.length > 0 ? providerUnconfiguredKeys[0] : "";
+                      return (
                       <div key={transformerIndex} className="border-2 border-slate-400 shadow-sm bg-white rounded-md p-3">
                         <div className="flex gap-2 items-center mb-2">
                           <div className="flex-1 bg-gray-50 rounded p-2 text-sm">
@@ -1003,25 +1018,29 @@ export function Providers() {
                         </div>
                         
                         {/* Transformer-specific Parameters */}
-                        <div className="mt-2 pl-4 border-l-2 border-slate-400">
+                        {showProviderParams && <div className="mt-2 space-y-2">
                           <Label className="text-sm">{t("providers.transformer_parameters")}</Label>
                           <div className="space-y-2 mt-1">
+                            {!providerHideInput && (
                             <div className="flex gap-2">
-                              <Input 
+                              <Input
                                 placeholder={t("providers.parameter_name")}
-                                value={providerParamInputs[`provider-${editingProviderIndex}-transformer-${transformerIndex}`]?.name || ""}
+                                value={providerPrefilledName || providerParamInputs[`provider-${editingProviderIndex}-transformer-${transformerIndex}`]?.name || ""}
+                                disabled={!!providerPrefilledName}
                                 onChange={(e) => {
-                                  const key = `provider-${editingProviderIndex}-transformer-${transformerIndex}`;
-                                  setProviderParamInputs(prev => ({
-                                    ...prev,
-                                    [key]: {
-                                      ...prev[key] || {name: "", value: ""},
-                                      name: e.target.value
-                                    }
-                                  }));
+                                  if (!providerPrefilledName) {
+                                    const key = `provider-${editingProviderIndex}-transformer-${transformerIndex}`;
+                                    setProviderParamInputs(prev => ({
+                                      ...prev,
+                                      [key]: {
+                                        ...prev[key] || {name: "", value: ""},
+                                        name: e.target.value
+                                      }
+                                    }));
+                                  }
                                 }}
                               />
-                              <Input 
+                              <Input
                                 placeholder={t("providers.parameter_value")}
                                 value={providerParamInputs[`provider-${editingProviderIndex}-transformer-${transformerIndex}`]?.value || ""}
                                 onChange={(e) => {
@@ -1035,14 +1054,16 @@ export function Providers() {
                                   }));
                                 }}
                               />
-                              <Button 
+                              <Button
                                 size="sm"
                                 onClick={() => {
                                   if (editingProviderIndex !== null) {
                                     const key = `provider-${editingProviderIndex}-transformer-${transformerIndex}`;
                                     const paramInput = providerParamInputs[key];
-                                    if (paramInput && paramInput.name && paramInput.value) {
-                                      addProviderTransformerParameter(editingProviderIndex, transformerIndex, paramInput.name, paramInput.value);
+                                    const paramName = providerPrefilledName || paramInput?.name;
+                                    const paramValue = paramInput?.value;
+                                    if (paramName && paramValue) {
+                                      addProviderTransformerParameter(editingProviderIndex, transformerIndex, paramName, paramValue);
                                       setProviderParamInputs(prev => ({
                                         ...prev,
                                         [key]: {name: "", value: ""}
@@ -1054,7 +1075,8 @@ export function Providers() {
                                 <Plus className="h-4 w-4" />
                               </Button>
                             </div>
-                            
+                            )}
+
                             {/* Display existing parameters for this transformer */}
                             {(() => {
                               // Get parameters for this specific transformer
@@ -1098,9 +1120,10 @@ export function Providers() {
                               ) : null;
                             })()}
                           </div>
-                        </div>
+                        </div>}
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </div>
@@ -1137,7 +1160,15 @@ export function Providers() {
                         {editingProvider.transformer?.[model]?.use && editingProvider.transformer[model].use.length > 0 && (
                           <div className="space-y-2 mt-2">
                             <div className="text-sm font-medium text-gray-700">{t("providers.selected_transformers")}</div>
-                            {editingProvider.transformer[model].use.map((transformer: string | (string | Record<string, unknown> | { max_tokens: number })[], transformerIndex: number) => (
+                            {editingProvider.transformer[model].use.map((transformer: string | (string | Record<string, unknown> | { max_tokens: number })[], transformerIndex: number) => {
+                              const modelTransformerName = typeof transformer === 'string' ? transformer : Array.isArray(transformer) ? String(transformer[0]) : String(transformer);
+                              const modelExistingParams = Array.isArray(transformer) && transformer.length > 1 && typeof transformer[1] === 'object' && transformer[1] !== null ? transformer[1] as Record<string, unknown> : {};
+                              const showModelParams = TRANSFORMERS_WITH_PARAMS.includes(modelTransformerName.toLowerCase()) || Object.keys(modelExistingParams).length > 0;
+                              const modelAllowedKeys = TRANSFORMERS_FIXED_PARAMS[modelTransformerName.toLowerCase()];
+                              const modelUnconfiguredKeys = modelAllowedKeys ? modelAllowedKeys.filter(k => !(k in modelExistingParams)) : [];
+                              const modelHideInput = modelAllowedKeys && modelUnconfiguredKeys.length === 0;
+                              const modelPrefilledName = modelUnconfiguredKeys.length > 0 ? modelUnconfiguredKeys[0] : "";
+                              return (
                               <div key={transformerIndex} className="border-2 border-slate-400 shadow-sm bg-white rounded-md p-3">
                                 <div className="flex gap-2 items-center mb-2">
                                   <div className="flex-1 bg-gray-50 rounded p-2 text-sm">
@@ -1157,25 +1188,29 @@ export function Providers() {
                                 </div>
                                 
                                 {/* Transformer-specific Parameters */}
-                                <div className="mt-2 pl-4 border-l-2 border-slate-400">
+                                {showModelParams && <div className="mt-2 space-y-2">
                                   <Label className="text-sm">{t("providers.transformer_parameters")}</Label>
                                   <div className="space-y-2 mt-1">
+                                    {!modelHideInput && (
                                     <div className="flex gap-2">
-                                      <Input 
+                                      <Input
                                         placeholder={t("providers.parameter_name")}
-                                        value={modelParamInputs[`model-${editingProviderIndex}-${model}-transformer-${transformerIndex}`]?.name || ""}
+                                        value={modelPrefilledName || modelParamInputs[`model-${editingProviderIndex}-${model}-transformer-${transformerIndex}`]?.name || ""}
+                                        disabled={!!modelPrefilledName}
                                         onChange={(e) => {
-                                          const key = `model-${editingProviderIndex}-${model}-transformer-${transformerIndex}`;
-                                          setModelParamInputs(prev => ({
-                                            ...prev,
-                                            [key]: {
-                                              ...prev[key] || {name: "", value: ""},
-                                              name: e.target.value
-                                            }
-                                          }));
+                                          if (!modelPrefilledName) {
+                                            const key = `model-${editingProviderIndex}-${model}-transformer-${transformerIndex}`;
+                                            setModelParamInputs(prev => ({
+                                              ...prev,
+                                              [key]: {
+                                                ...prev[key] || {name: "", value: ""},
+                                                name: e.target.value
+                                              }
+                                            }));
+                                          }
                                         }}
                                       />
-                                      <Input 
+                                      <Input
                                         placeholder={t("providers.parameter_value")}
                                         value={modelParamInputs[`model-${editingProviderIndex}-${model}-transformer-${transformerIndex}`]?.value || ""}
                                         onChange={(e) => {
@@ -1189,14 +1224,16 @@ export function Providers() {
                                           }));
                                         }}
                                       />
-                                      <Button 
+                                      <Button
                                         size="sm"
                                         onClick={() => {
                                           if (editingProviderIndex !== null) {
                                             const key = `model-${editingProviderIndex}-${model}-transformer-${transformerIndex}`;
                                             const paramInput = modelParamInputs[key];
-                                            if (paramInput && paramInput.name && paramInput.value) {
-                                              addModelTransformerParameter(editingProviderIndex, model, transformerIndex, paramInput.name, paramInput.value);
+                                            const paramName = modelPrefilledName || paramInput?.name;
+                                            const paramValue = paramInput?.value;
+                                            if (paramName && paramValue) {
+                                              addModelTransformerParameter(editingProviderIndex, model, transformerIndex, paramName, paramValue);
                                               setModelParamInputs(prev => ({
                                                 ...prev,
                                                 [key]: {name: "", value: ""}
@@ -1208,6 +1245,7 @@ export function Providers() {
                                         <Plus className="h-4 w-4" />
                                       </Button>
                                     </div>
+                                    )}
                                     
                                     {/* Display existing parameters for this transformer */}
                                     {(() => {
@@ -1252,9 +1290,10 @@ export function Providers() {
                                       ) : null;
                                     })()}
                                   </div>
-                                </div>
+                                </div>}
                               </div>
-                            ))}
+                            );
+                            })}
                           </div>
                         )}
                       </div>

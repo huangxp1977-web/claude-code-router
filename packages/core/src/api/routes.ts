@@ -165,7 +165,7 @@ async function getFallbackModel(req: FastifyRequest, fastify: FastifyInstance, e
   const providerService = fastify.providerService;
   const transformerService = fastify.transformerService;
   
-  const config = await configService.getConfig();
+  const config = configService.getAll();
   const router = config.Router || {};
   const fallbackList = getArrayValue(router[scenarioType] || router.default);
 

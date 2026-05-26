@@ -1,6 +1,6 @@
 {
   "name": "@thxp/claude-code-router-workspace",
-  "version": "3.0.8",
+  "version": "3.1.2",
   "description": "Use Claude Code without an Anthropics account and route it to another LLM provider",
   "scripts": {
     "build": "pnpm build:shared && pnpm build:core && pnpm build:server && pnpm build:cli && pnpm build:ui",
@@ -10,9 +10,8 @@
     "build:server": "pnpm --filter @thxp/server build",
     "build:ui": "pnpm --filter @thxp/ui build",
     "build:docs": "pnpm --filter claude-code-router-docs build",
-    "release": "pnpm build && bash scripts/release.sh all",
-    "release:npm": "bash scripts/release.sh npm",
-    "release:docker": "bash scripts/release.sh docker",
+    "release": "pnpm build && bash scripts/release.sh",
+    "release:npm": "bash scripts/release.sh",
     "dev:cli": "pnpm --filter @thxp/claude-code-router dev",
     "dev:server": "pnpm --filter @thxp/server dev",
     "dev:ui": "pnpm --filter @thxp/ui dev",
@@ -38,10 +37,8 @@
     "shx": "^0.4.0",
     "typescript": "^5.8.2"
   },
-  "pnpm": {
-    "overrides": {
-      "@types/react": "18"
-    }
+  "overrides": {
+    "@types/react": "18"
   },
   "engines": {
     "node": ">=20.0.0",

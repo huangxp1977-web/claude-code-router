@@ -138,7 +138,11 @@ export class ConfigService {
       this.get("HTTPS_PROXY") ||
       this.get("https_proxy") ||
       this.get("httpsProxy") ||
-      this.get("PROXY_URL")
+      this.get("PROXY_URL") ||
+      process.env.HTTPS_PROXY ||
+      process.env.https_proxy ||
+      process.env.HTTP_PROXY ||
+      process.env.http_proxy
     );
   }
 

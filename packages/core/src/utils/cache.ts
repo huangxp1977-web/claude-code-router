@@ -43,6 +43,10 @@ class LRUCache<K, V> {
     return this.cache.has(key);
   }
 
+  del(key: K): boolean {
+    return this.cache.delete(key);
+  }
+
   clear(): void {
     this.cache.clear();
   }
@@ -55,7 +59,8 @@ class LRUCache<K, V> {
 export const sessionUsageCache = new LRUCache<string, Usage>(100);
 
 // Cache for failed models - stores provider,model pairs that have failed
-// This prevents retrying failed models on every request
+// Entries expire after FAILED_MODEL_TTL_MS to allow retry after transient errors (e.g. 429)
+const FAILED_MODEL_TTL_MS = 5 * 60 * 1000; // 5 minutes
 export const failedModelsCache = new LRUCache<string, number>(1000);
 
 export const markModelAsFailed = (modelSpec: string): void => {
@@ -63,7 +68,13 @@ export const markModelAsFailed = (modelSpec: string): void => {
 };
 
 export const isModelFailed = (modelSpec: string): boolean => {
-  return failedModelsCache.has(modelSpec);
+  const failedAt = failedModelsCache.get(modelSpec);
+  if (failedAt === undefined) return false;
+  if (Date.now() - failedAt > FAILED_MODEL_TTL_MS) {
+    failedModelsCache.del(modelSpec);
+    return false;
+  }
+  return true;
 };
 
 export const clearFailedModels = (): void => {

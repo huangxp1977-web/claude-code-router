@@ -4,38 +4,14 @@ set -e
 # 发布脚本
 # - Core 包作为 @thxp/llms npm 包发布
 # - CLI 包作为 @thxp/claude-code-router npm 包发布
-# - Server 包发布为 Docker 镜像
 
-VERSION=$(node -p "require('../packages/cli/package.json').version")
-IMAGE_NAME="ccr/router"
-IMAGE_TAG="${VERSION}"
-LATEST_TAG="latest"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+VERSION=$(node -p "require('$ROOT_DIR/packages/cli/package.json').version")
 
 echo "========================================="
 echo "发布 Claude Code Router v${VERSION}"
 echo "========================================="
-
-# 获取发布类型参数
-PUBLISH_TYPE="${1:-all}"
-
-case "$PUBLISH_TYPE" in
-  npm)
-    echo "仅发布 npm 包..."
-    ;;
-  docker)
-    echo "仅发布 Docker 镜像..."
-    ;;
-  all)
-    echo "发布 npm 包和 Docker 镜像..."
-    ;;
-  *)
-    echo "用法: $0 [npm|docker|all]"
-    echo "  npm    - 仅发布到 npm"
-    echo "  docker - 仅发布到 Docker Hub"
-    echo "  all    - 发布到 npm 和 Docker Hub (默认)"
-    exit 1
-    ;;
-esac
 
 # ===========================
 # 发布 Core npm 包 (@thxp/llms)
@@ -52,12 +28,12 @@ publish_core_npm() {
     exit 1
   fi
 
-  CORE_DIR="../packages/core"
-  CORE_VERSION=$(node -p "require('../packages/core/package.json').version")
+  CORE_DIR="$ROOT_DIR/packages/core"
+  CORE_VERSION=$(node -p "require('$ROOT_DIR/packages/core/package.json').version")
 
   # 复制 README 到 core 包
-  cp ../README.md "$CORE_DIR/" 2>/dev/null || echo "README.md 不存在，跳过..."
-  cp ../LICENSE "$CORE_DIR/" 2>/dev/null || echo "LICENSE 文件不存在，跳过..."
+  cp "$ROOT_DIR/README.md" "$CORE_DIR/" 2>/dev/null || echo "README.md 不存在，跳过..."
+  cp "$ROOT_DIR/LICENSE" "$CORE_DIR/" 2>/dev/null || echo "LICENSE 文件不存在，跳过..."
 
   # 使用子 Shell 发布，避免改变主脚本的路径
   (
@@ -87,10 +63,7 @@ publish_npm() {
     exit 1
   fi
 
-  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-  ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
   CLI_DIR="$ROOT_DIR/packages/cli"
-  SERVER_DIR="$ROOT_DIR/packages/server"
   BACKUP_DIR="$CLI_DIR/.backup"
 
   mkdir -p "$BACKUP_DIR"
@@ -149,52 +122,10 @@ publish_npm() {
 
 
 # ===========================
-# 发布 Docker 镜像
-# ===========================
-publish_docker() {
-  echo ""
-  echo "========================================="
-  echo "发布 Docker 镜像"
-  echo "========================================="
-
-  # 检查是否已登录 Docker
-  if ! docker info &>/dev/null; then
-    echo "错误: Docker 未运行"
-    exit 1
-  fi
-
-  # 构建 Docker 镜像
-  echo "构建 Docker 镜像 ${IMAGE_NAME}:${IMAGE_TAG}..."
-  docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" -f ../packages/server/Dockerfile ..
-
-  # 标记为 latest
-  echo "标记为 latest..."
-  docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${IMAGE_NAME}:${LATEST_TAG}"
-
-  # 推送到 Docker Hub
-  echo "推送 ${IMAGE_NAME}:${IMAGE_TAG}..."
-  docker push "${IMAGE_NAME}:${IMAGE_TAG}"
-
-  echo "推送 ${IMAGE_NAME}:${LATEST_TAG}..."
-  docker push "${IMAGE_NAME}:${LATEST_TAG}"
-
-  echo ""
-  echo "✅ Docker 镜像发布成功!"
-  echo "   镜像: ${IMAGE_NAME}:${IMAGE_TAG}"
-  echo "   镜像: ${IMAGE_NAME}:latest"
-}
-
-# ===========================
 # 执行发布
 # ===========================
-if [ "$PUBLISH_TYPE" = "npm" ] || [ "$PUBLISH_TYPE" = "all" ]; then
-  publish_core_npm
-  publish_npm
-fi
-
-if [ "$PUBLISH_TYPE" = "docker" ] || [ "$PUBLISH_TYPE" = "all" ]; then
-  publish_docker
-fi
+publish_core_npm
+publish_npm
 
 echo ""
 echo "========================================="

@@ -139,6 +139,9 @@ export const createServer = async (config: any): Promise<any> => {
       if (url.endsWith("/models/")) {
         url = url.slice(0, -1);
       }
+      if (url.endsWith("/models")) {
+        return url;
+      }
       return url + "/models";
     }
 
@@ -148,7 +151,10 @@ export const createServer = async (config: any): Promise<any> => {
         return { "x-goog-api-key": apiKey };
       }
       if (transformerName === "Anthropic" || baseUrl.includes("anthropic")) {
-        return { "x-api-key": apiKey };
+        return {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        };
       }
       return { Authorization: `Bearer ${apiKey}` };
     }
@@ -182,16 +188,56 @@ export const createServer = async (config: any): Promise<any> => {
     }
 
     try {
-      const modelsUrl = normalizeModelsUrl(api_base_url);
+      let modelsUrl = normalizeModelsUrl(api_base_url);
+      const isGemini = api_base_url.includes("generativelanguage.googleapis.com");
       const headers = getAuthHeaders(api_base_url, api_key, transformer);
 
-      const response = await fetch(modelsUrl, {
+      // Gemini uses ?key= URL parameter for /models endpoint
+      if (isGemini) {
+        const separator = modelsUrl.includes("?") ? "&" : "?";
+        modelsUrl = `${modelsUrl}${separator}key=${api_key}`;
+      }
+
+      const fetchOptions: any = {
         method: "GET",
         headers: { ...headers, "Content-Type": "application/json" },
         signal: AbortSignal.timeout(15000),
-      });
+      };
+
+      const httpsProxy =
+        process.env.HTTPS_PROXY || process.env.https_proxy ||
+        process.env.HTTP_PROXY || process.env.http_proxy;
+      if (httpsProxy) {
+        const { ProxyAgent } = await import("undici");
+        fetchOptions.dispatcher = new ProxyAgent(new URL(httpsProxy).toString());
+      }
+
+      const response = await fetch(modelsUrl, fetchOptions);
 
       if (!response.ok) {
+        // For Anthropic-type providers, retry with OpenAI-style /v1/models path
+        if (response.status === 404 && modelsUrl.includes("/anthropic/")) {
+          try {
+            const openaiUrl = api_base_url.replace(/\/anthropic\/v1\/.*$/, "/v1/models");
+            if (openaiUrl !== api_base_url) {
+              const retryResp = await fetch(openaiUrl, fetchOptions);
+              if (retryResp.ok) {
+                const data = await retryResp.json();
+                const models = extractModels(data);
+                if (models.length) return { models };
+              }
+            }
+          } catch {}
+        }
+        // Fallback: return the provider's currently configured models
+        try {
+          const config = await readConfigFile();
+          const providers = config.Providers || config.providers || [];
+          const matched = providers.find((p: any) => p.api_base_url === api_base_url);
+          if (matched?.models?.length) {
+            return { models: [...matched.models].sort(), fallback: true };
+          }
+        } catch {}
         const text = await response.text().catch(() => "");
         return reply.status(response.status).send({
           error: `Provider returned ${response.status}: ${text.slice(0, 200)}`,
