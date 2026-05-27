@@ -119,7 +119,7 @@ async function handleTransformerEndpoint(
         
         // Update state for next iteration
         currentProvider = fallbackModel.provider;
-        currentTransformer = fallbackModel.transformerConfig;
+        currentTransformer = fallbackModel.transformerConfig || currentTransformer;
         // Update body to match the new model
         body.model = fallbackModel.modelName;
         currentBody = { ...body, model: fallbackModel.modelName };
@@ -196,15 +196,13 @@ async function getFallbackModel(req: FastifyRequest, fastify: FastifyInstance, e
   const nextModelSpec = modelsToTry[0];
   const [targetProviderName, targetModelName] = nextModelSpec.split(",");
   
-  const targetProvider = await providerService.getProvider(targetProviderName);
+  const targetProvider = providerService.getProvider(targetProviderName);
   if (!targetProvider) return null;
 
-  const transformerConfig = await transformerService.getTransformerConfig(targetProvider, targetModelName);
-  
   return {
     provider: targetProvider,
     modelName: targetModelName,
-    transformerConfig
+    transformerConfig: null // Caller reuses current transformer
   };
 }
 

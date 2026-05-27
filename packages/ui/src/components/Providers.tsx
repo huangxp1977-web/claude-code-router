@@ -973,9 +973,10 @@ export function Providers() {
                               placeholder={t("providers.no_limit")}
                               value={editingProvider.model_limits?.[model] ?? ''}
                               onChange={(e) => {
-                                const val = e.target.value === '' ? undefined : Number(e.target.value);
+                                const raw = e.target.value;
+                                const val = raw === '' ? undefined : Number(raw);
                                 const limits = { ...(editingProvider.model_limits || {}) };
-                                if (val === undefined) { delete limits[model]; } else { limits[model] = val; }
+                                if (val === undefined || isNaN(val)) { delete limits[model]; } else { limits[model] = val; }
                                 if (editingProviderIndex !== null) {
                                   handleProviderChange(editingProviderIndex, 'model_limits', limits);
                                 }

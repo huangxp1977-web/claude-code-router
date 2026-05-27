@@ -168,7 +168,7 @@ async function getServer(options: RunOptions = {}) {
         config.LOG = true;
       }
       loggerConfig = {
-        level: config.LOG_LEVEL || "debug",
+        level: config.LOG_LEVEL || "info",
         stream: createStream(generator, {
           path: HOME_DIR,
           maxFiles: 3,
