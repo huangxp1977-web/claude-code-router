@@ -92,6 +92,8 @@
     "select_from_available": "Select from available models...",
     "add_selected": "Add Selected",
     "no_models_fetched": "No models found",
+    "model_limits": "Model Daily Token Limits",
+    "no_limit": "No limit",
     "transformers": "Transformers",
     "select_transformer": "Select Transformer",
     "no_transformers": "No transformers available",

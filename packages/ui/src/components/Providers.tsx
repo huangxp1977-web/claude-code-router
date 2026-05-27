@@ -353,7 +353,7 @@ export function Providers() {
     setDeletingProviderIndex(null);
   };
 
-  const handleProviderChange = (_index: number, field: string, value: string) => {
+  const handleProviderChange = (_index: number, field: string, value: any) => {
     if (editingProviderData) {
       const updatedProvider = { ...editingProviderData, [field]: value };
       setEditingProviderData(updatedProvider);
@@ -961,6 +961,32 @@ export function Providers() {
                       </Badge>
                     ))}
                   </div>
+                  {editingProvider.models && editingProvider.models.length > 0 && (
+                    <div className="space-y-2 pt-2">
+                      <Label className="text-sm">{t("providers.model_limits")}</Label>
+                      <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-2 bg-gray-50">
+                        {editingProvider.models.map((model: string) => (
+                          <div key={model} className="flex items-center gap-2">
+                            <span className="text-sm font-medium w-1/3 truncate">{model}</span>
+                            <Input
+                              type="number"
+                              placeholder={t("providers.no_limit")}
+                              value={editingProvider.model_limits?.[model] ?? ''}
+                              onChange={(e) => {
+                                const val = e.target.value === '' ? undefined : Number(e.target.value);
+                                const limits = { ...(editingProvider.model_limits || {}) };
+                                if (val === undefined) { delete limits[model]; } else { limits[model] = val; }
+                                if (editingProviderIndex !== null) {
+                                  handleProviderChange(editingProviderIndex, 'model_limits', limits);
+                                }
+                              }}
+                              className="flex-1 h-8"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               

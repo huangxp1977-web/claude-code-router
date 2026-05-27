@@ -1,5 +1,6 @@
 import { get_encoding } from "tiktoken";
 import { sessionUsageCache, Usage, isModelFailed, getModelSpec } from "./cache";
+import { getModelUsage } from "./dailyUsage";
 import { readFile } from "fs/promises";
 import { opendir, stat } from "fs/promises";
 import { join } from "path";
@@ -145,12 +146,33 @@ const getUseModel = async (
     return { model: req.body.model, scenarioType: 'default' };
   }
 
+  // Check if a model has exceeded its daily token limit
+  const isModelCapped = (provider: any, modelName: string): boolean => {
+    if (provider.model_limits?.[modelName] !== undefined) {
+      return getModelUsage(provider.name, modelName) >= provider.model_limits[modelName];
+    }
+    return false;
+  };
+
   // Helper function to get a valid model from array or string
   const getValidModel = (modelConfig: string | string[] | undefined): string | null => {
     if (!modelConfig) return null;
 
-    // If it's a string, return it directly
+    // If it's a string, check daily limit before returning
     if (typeof modelConfig === 'string') {
+      let pName = "";
+      let mName = "";
+      if (modelConfig.includes(",")) {
+        [pName, mName] = modelConfig.split(",");
+      } else {
+        mName = modelConfig;
+        const found = providers.find((p: any) => p.models.includes(mName));
+        if (found) pName = found.name;
+      }
+      if (pName && mName) {
+        const provider = providers.find((p: any) => p.name.toLowerCase() === pName.toLowerCase());
+        if (provider && isModelCapped(provider, mName)) return null;
+      }
       return modelConfig;
     }
 
@@ -158,17 +180,15 @@ const getUseModel = async (
     if (Array.isArray(modelConfig)) {
       for (const model of modelConfig) {
         if (typeof model === 'string' && model.trim()) {
-          // Validate that the model exists in providers
           if (model.includes(',')) {
             const [providerName, modelName] = model.split(',');
             const provider = providers.find(p => p.name.toLowerCase() === providerName.toLowerCase());
-            if (provider && provider.models.includes(modelName) && !isModelFailed(getModelSpec(providerName, modelName))) {
+            if (provider && provider.models.includes(modelName) && !isModelFailed(getModelSpec(providerName, modelName)) && !isModelCapped(provider, modelName)) {
               return model;
             }
           } else {
-            // Find provider that has this model
             const provider = providers.find(p => p.models.includes(model));
-            if (provider && !isModelFailed(getModelSpec(provider.name, model))) {
+            if (provider && !isModelFailed(getModelSpec(provider.name, model)) && !isModelCapped(provider, model)) {
               return model;
             }
           }
@@ -250,7 +270,8 @@ const getUseModel = async (
   }
 
   // Fallback to original behavior if no valid model found
-  return { model: Router?.default, scenarioType: 'default' };
+  const fallbackModel = Array.isArray(Router?.default) ? Router.default[0] : Router?.default;
+  return { model: fallbackModel, scenarioType: 'default' };
 };
 
 export interface RouterContext {
@@ -271,6 +292,10 @@ export interface RouterFallbackConfig {
 
 export const router = async (req: any, _res: any, context: RouterContext) => {
   const { configService, event } = context;
+  // Normalize req.body.model if sent as an array
+  if (req.body && Array.isArray(req.body.model)) {
+    req.body.model = req.body.model[0];
+  }
   // Parse sessionId from metadata.user_id
   if (req.body.metadata?.user_id) {
     const parts = req.body.metadata.user_id.split("_session_");
@@ -345,7 +370,8 @@ export const router = async (req: any, _res: any, context: RouterContext) => {
   } catch (error: any) {
     req.log.error(`Error in router middleware: ${error.message}`);
     const Router = configService.get("Router");
-    req.body.model = Router?.default;
+    const defaultVal = Router?.default;
+    req.body.model = Array.isArray(defaultVal) ? defaultVal[0] : defaultVal;
     req.scenarioType = 'default';
   }
   return;

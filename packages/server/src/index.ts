@@ -8,6 +8,7 @@ import { apiKeyAuth } from "./middleware/auth";
 import { CONFIG_FILE, HOME_DIR, listPresets } from "@thxp/shared";
 import { createStream } from 'rotating-file-stream';
 import { sessionUsageCache } from "@thxp/llms";
+import { recordModelUsage } from "@thxp/llms";
 import { SSEParserTransform } from "./utils/SSEParser.transform";
 import { SSESerializerTransform } from "./utils/SSESerializer.transform";
 import { rewriteStream } from "./utils/rewriteStream";
@@ -407,6 +408,10 @@ async function getServer(options: RunOptions = {}) {
               try {
                 const message = JSON.parse(str);
                 sessionUsageCache.put(req.sessionId, message.usage);
+                if (req.provider && req.body?.model && message.usage) {
+                  const tokens = (message.usage.input_tokens || 0) + (message.usage.output_tokens || 0);
+                  if (tokens > 0) recordModelUsage(req.provider, req.body.model, tokens);
+                }
               } catch {}
             }
           } catch (readError: any) {
@@ -423,6 +428,10 @@ async function getServer(options: RunOptions = {}) {
         return done(null, originalStream)
       }
       sessionUsageCache.put(req.sessionId, payload.usage);
+      if (req.provider && req.body?.model && payload.usage) {
+        const tokens = (payload.usage.input_tokens || 0) + (payload.usage.output_tokens || 0);
+        if (tokens > 0) recordModelUsage(req.provider, req.body.model, tokens);
+      }
       if (typeof payload ==='object') {
         if (payload.error) {
           return done(payload.error, null)

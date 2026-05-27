@@ -7,6 +7,7 @@ import {
 import { RegisterProviderRequest, LLMProvider } from "@/types/llm";
 import { sendUnifiedRequest } from "@/utils/request";
 import { createApiError } from "./middleware";
+import { getModelUsage } from "@/utils/dailyUsage";
 import { version } from "../../package.json";
 import { ConfigService } from "@/services/config";
 import { ProviderService } from "@/services/provider";
@@ -63,6 +64,19 @@ async function handleTransformerEndpoint(
       (req as any).provider = currentProvider.name;
       (req as any).scenarioType = (req as any).scenarioType || "default";
 
+      // Check daily token limit before sending
+      const currentModelName = currentBody.model;
+      if (currentProvider.model_limits?.[currentModelName] !== undefined) {
+        const usage = getModelUsage(currentProvider.name, currentModelName);
+        if (usage >= currentProvider.model_limits[currentModelName]) {
+          throw createApiError(
+            `Model '${currentModelName}' daily token limit exceeded`,
+            429,
+            "daily_limit_exceeded"
+          );
+        }
+      }
+
       const { requestBody, config: requestConfig, bypass } = await processRequestTransformers(
         currentBody,
         currentProvider,
@@ -107,6 +121,7 @@ async function handleTransformerEndpoint(
         currentProvider = fallbackModel.provider;
         currentTransformer = fallbackModel.transformerConfig;
         // Update body to match the new model
+        body.model = fallbackModel.modelName;
         currentBody = { ...body, model: fallbackModel.modelName };
         
         continue; // Try again with the new model
@@ -515,6 +530,7 @@ export const registerApiRoutes = async (
             baseUrl: { type: "string" },
             apiKey: { type: "string" },
             models: { type: "array", items: { type: "string" } },
+            model_limits: { type: "object" },
           },
           required: ["id", "name", "type", "baseUrl", "apiKey", "models"],
         },
@@ -611,6 +627,7 @@ export const registerApiRoutes = async (
             baseUrl: { type: "string" },
             apiKey: { type: "string" },
             models: { type: "array", items: { type: "string" } },
+            model_limits: { type: "object" },
             enabled: { type: "boolean" },
           },
         },

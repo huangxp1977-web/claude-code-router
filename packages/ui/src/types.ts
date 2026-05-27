@@ -9,6 +9,7 @@ export interface Provider {
   api_key: string;
   models: string[];
   transformer?: ProviderTransformer;
+  model_limits?: Record<string, number>;
 }
 
 export interface RouterConfig {

@@ -522,11 +522,33 @@ export async function transformResponseOut(
     const jsonResponse: any = await response.json();
     logger?.debug({ response: jsonResponse }, `${providerName} response:`);
 
+    const candidate = jsonResponse.candidates?.[0];
+    const annotations = candidate?.groundingMetadata?.groundingChunks?.length
+      ? candidate.groundingMetadata.groundingChunks.map(
+          (groundingChunk: any, index: number) => {
+            const support =
+              candidate?.groundingMetadata?.groundingSupports?.filter(
+                (item: any) => item.groundingChunkIndices?.includes(index)
+              );
+            return {
+              type: "url_citation",
+              url_citation: {
+                url: groundingChunk?.web?.uri || "",
+                title: groundingChunk?.web?.title || "",
+                content: support?.[0]?.segment?.text || "",
+                start_index: support?.[0]?.segment?.startIndex || 0,
+                end_index: support?.[0]?.segment?.endIndex || 0,
+              },
+            };
+          }
+        )
+      : undefined;
+
     // Extract thinking content from parts with thought: true
     let thinkingContent = "";
     let thinkingSignature = "";
 
-    const parts = jsonResponse.candidates[0]?.content?.parts || [];
+    const parts = candidate?.content?.parts || [];
     const nonThinkingParts: Part[] = [];
 
     for (const part of parts) {
@@ -567,14 +589,15 @@ export async function transformResponseOut(
       choices: [
         {
           finish_reason:
-            (
-              jsonResponse.candidates[0].finishReason as string
-            )?.toLowerCase() || null,
+            tool_calls.length > 0
+              ? "tool_calls"
+              : (candidate?.finishReason as string)?.toLowerCase() || null,
           index: 0,
           message: {
             content: textContent,
             role: "assistant",
             tool_calls: tool_calls.length > 0 ? tool_calls : undefined,
+            ...(annotations && { annotations }),
             // Add thinking as separate field if available
             ...(thinkingSignature && {
               thinking: {
@@ -636,7 +659,35 @@ export async function transformResponseOut(
 
                 // Check if chunk has valid structure
                 if (!chunk.candidates || !chunk.candidates[0]) {
-                  logger?.debug({ chunkStr }, `Invalid chunk structure`);
+                  if (chunk.usageMetadata) {
+                    const res = {
+                      choices: [],
+                      created: parseInt(new Date().getTime() / 1000 + "", 10),
+                      id: chunk.responseId || "",
+                      model: chunk.modelVersion || "",
+                      object: "chat.completion.chunk",
+                      system_fingerprint: "fp_a49d71b8a1",
+                      usage: {
+                        completion_tokens:
+                          chunk.usageMetadata?.candidatesTokenCount || 0,
+                        prompt_tokens: chunk.usageMetadata?.promptTokenCount || 0,
+                        prompt_tokens_details: {
+                          cached_tokens:
+                            chunk.usageMetadata?.cachedContentTokenCount || 0,
+                        },
+                        total_tokens: chunk.usageMetadata?.totalTokenCount || 0,
+                        output_tokens_details: {
+                          reasoning_tokens:
+                            chunk.usageMetadata?.thoughtsTokenCount || 0,
+                        },
+                      },
+                    };
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify(res)}\n\n`)
+                    );
+                  } else {
+                    logger?.debug({ chunkStr }, `Invalid chunk structure`);
+                  }
                   return;
                 }
 
@@ -861,7 +912,9 @@ export async function transformResponseOut(
                           content: textContent,
                         },
                         finish_reason:
-                          candidate.finishReason?.toLowerCase() || null,
+                          candidate.finishReason
+                            ? (tool_calls.length > 0 || toolCallIndex >= 0 ? "tool_calls" : candidate.finishReason.toLowerCase())
+                            : null,
                         index: contentIndex,
                         logprobs: null,
                       },
@@ -936,7 +989,9 @@ export async function transformResponseOut(
                             ],
                           },
                           finish_reason:
-                            candidate.finishReason?.toLowerCase() || null,
+                            candidate.finishReason
+                              ? "tool_calls"
+                              : null,
                           index: contentIndex,
                           logprobs: null,
                         },
@@ -993,6 +1048,74 @@ export async function transformResponseOut(
 
                   if (!contentSent && textContent) {
                     contentSent = true;
+                  }
+
+                  // Handle groundingMetadata in chunks with empty textContent and no tool calls
+                  if (
+                    !textContent &&
+                    tool_calls.length === 0 &&
+                    candidate?.groundingMetadata?.groundingChunks?.length
+                  ) {
+                    contentIndex++;
+                    const res = {
+                      choices: [
+                        {
+                          delta: {
+                            role: "assistant",
+                            content: "",
+                            annotations: candidate.groundingMetadata.groundingChunks.map(
+                              (groundingChunk: any, index: number) => {
+                                const support =
+                                  candidate?.groundingMetadata?.groundingSupports?.filter(
+                                    (item: any) =>
+                                      item.groundingChunkIndices?.includes(index)
+                                  );
+                                return {
+                                  type: "url_citation",
+                                  url_citation: {
+                                    url: groundingChunk?.web?.uri || "",
+                                    title: groundingChunk?.web?.title || "",
+                                    content: support?.[0]?.segment?.text || "",
+                                    start_index:
+                                      support?.[0]?.segment?.startIndex || 0,
+                                    end_index:
+                                      support?.[0]?.segment?.endIndex || 0,
+                                  },
+                                };
+                              }
+                            ),
+                          },
+                          finish_reason:
+                            candidate.finishReason
+                              ? (tool_calls.length > 0 || toolCallIndex >= 0 ? "tool_calls" : candidate.finishReason.toLowerCase())
+                              : null,
+                          index: contentIndex,
+                          logprobs: null,
+                        },
+                      ],
+                      created: parseInt(new Date().getTime() / 1000 + "", 10),
+                      id: chunk.responseId || "",
+                      model: chunk.modelVersion || "",
+                      object: "chat.completion.chunk",
+                      system_fingerprint: "fp_a49d71b8a1",
+                      usage: {
+                        completion_tokens:
+                          chunk.usageMetadata?.candidatesTokenCount || 0,
+                        prompt_tokens: chunk.usageMetadata?.promptTokenCount || 0,
+                        prompt_tokens_details: {
+                          cached_tokens:
+                            chunk.usageMetadata?.cachedContentTokenCount || 0,
+                        },
+                        total_tokens: chunk.usageMetadata?.totalTokenCount || 0,
+                        output_tokens_details: {
+                          reasoning_tokens:
+                            chunk.usageMetadata?.thoughtsTokenCount || 0,
+                        },
+                      },
+                    };
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify(res)}\n\n`)
+                    );
                   }
                 }
               } catch (error: any) {

@@ -89,6 +89,7 @@ export class ProviderService {
           apiKey: providerConfig.api_key,
           models: providerConfig.models || [],
           transformer: providerConfig.transformer ? transformer : undefined,
+          model_limits: providerConfig.model_limits,
         });
 
         this.logger.info(`${providerConfig.name} provider registered`);

@@ -225,7 +225,14 @@ class Server {
                   .code(400)
                   .send({ error: "Missing model in request body" });
               }
-              const [provider, ...model] = body.model.split(",");
+              let modelStr = body.model;
+              if (Array.isArray(modelStr)) {
+                modelStr = modelStr[0];
+              }
+              if (typeof modelStr !== "string") {
+                return reply.code(400).send({ error: "Invalid model type in request body" });
+              }
+              const [provider, ...model] = modelStr.split(",");
               body.model = model.join(",");
               req.provider = provider;
               req.model = model;
@@ -274,3 +281,4 @@ export { TransformerService } from "./services/transformer";
 export { TokenizerService } from "./services/tokenizer";
 export { pluginManager, tokenSpeedPlugin, getTokenSpeedStats, getGlobalTokenSpeedStats, CCRPlugin, CCRPluginOptions, PluginMetadata } from "./plugins";
 export { SSEParserTransform, SSESerializerTransform, rewriteStream } from "./utils/sse";
+export { recordModelUsage, getModelUsage } from "./utils/dailyUsage";

@@ -122,6 +122,8 @@ export class TokenizerService {
       if (!this.fallbackTokenizer) {
         await this.initialize();
       }
+      // Cache the fallback tokenizer under the cache key to avoid repeated download attempts
+      this.tokenizers.set(cacheKey, this.fallbackTokenizer!);
       return this.fallbackTokenizer!;
     }
   }

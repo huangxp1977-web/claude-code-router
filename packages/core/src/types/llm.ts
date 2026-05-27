@@ -209,6 +209,7 @@ export interface LLMProvider {
   } & {
     use?: Transformer[];
   };
+  model_limits?: Record<string, number>;
 }
 
 export type RegisterProviderRequest = LLMProvider;
@@ -238,4 +239,5 @@ export interface ConfigProvider {
     };
   };
   tokenizer?: ProviderTokenizerConfig;
+  model_limits?: Record<string, number>;
 }
