@@ -124,46 +124,19 @@ export function Providers() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
 
   useEffect(() => {
-    const fetchProviderTemplates = async () => {
-      // Built-in templates that are always available
-      const builtinTemplates: ProviderType[] = [
-        {
-          name: "sensenova",
-          api_base_url: "https://token.sensenova.cn/v1/chat/completions",
-          api_key: "",
-          models: ["sensenova-6.7-flash-lite", "deepseek-v4-flash"],
-        },
-        {
-          name: "Google",
-          api_base_url: "https://generativelanguage.googleapis.com/v1beta/models/",
-          api_key: "",
-          models: ["gemini-3-flash-preview", "gemini-2.5-flash"],
-        },
-        {
-          name: "xiaomimimo",
-          api_base_url: "https://token-plan-cn.xiaomimimo.com/anthropic/v1/messages",
-          api_key: "",
-          models: ["mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-pro", "mimo-v2-omni"],
-        },
-      ];
-
-      try {
-        const response = await fetch('https://pub-0dc3e1677e894f07bbea11b17a29e032.r2.dev/providers.json');
-        if (response.ok) {
-          const data = await response.json();
-          const builtinNames = new Set(builtinTemplates.map(t => t.name.toLowerCase()));
-          const remoteTemplates = (data || []).filter((t: ProviderType) => !builtinNames.has(t.name.toLowerCase()));
-          setProviderTemplates([...builtinTemplates, ...remoteTemplates]);
-        } else {
-          setProviderTemplates(builtinTemplates);
-        }
-      } catch (error) {
-        console.error('Failed to fetch provider templates:', error);
-        setProviderTemplates(builtinTemplates);
-      }
-    };
-
-    fetchProviderTemplates();
+    const builtinTemplates: ProviderType[] = [
+      { name: "Dashscope", api_base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", api_key: "", models: [] },
+      { name: "DeepSeek", api_base_url: "https://api.deepseek.com/v1/chat/completions", api_key: "", models: [] },
+      { name: "Google", api_base_url: "https://generativelanguage.googleapis.com/v1beta/models/", api_key: "", models: [] },
+      { name: "Groq", api_base_url: "https://api.groq.com/openai/v1/chat/completions", api_key: "", models: [] },
+      { name: "OpenAI", api_base_url: "https://api.openai.com/v1/chat/completions", api_key: "", models: [] },
+      { name: "OpenRouter", api_base_url: "https://openrouter.ai/api/v1/chat/completions", api_key: "", models: [] },
+      { name: "Sensenova", api_base_url: "https://token.sensenova.cn/v1/chat/completions", api_key: "", models: [] },
+      { name: "SiliconFlow", api_base_url: "https://api.siliconflow.cn/v1/chat/completions", api_key: "", models: [] },
+      { name: "Volcengine", api_base_url: "https://ark.cn-beijing.volces.com/api/v3/chat/completions", api_key: "", models: [] },
+      { name: "Xiaomimimo", api_base_url: "https://token-plan-cn.xiaomimimo.com/anthropic/v1/messages", api_key: "", models: [] },
+    ];
+    setProviderTemplates(builtinTemplates);
   }, []);
 
   // Fetch available transformers when component mounts
@@ -604,16 +577,25 @@ export function Providers() {
 
     const handleTemplateImport = (templateName: string) => {
     if (!templateName) return;
-    const selectedTemplate = providerTemplates.find(p => p.name.toLowerCase() === templateName.toLowerCase());
-    if (selectedTemplate) {
-      const currentName = editingProviderData?.name;
-      const newProviderData = JSON.parse(JSON.stringify(selectedTemplate));
-
-      if (!isNewProvider && currentName) {
-        newProviderData.name = currentName;
-      }
-
-      setEditingProviderData(newProviderData as ProviderType);
+    if (templateName === "__other__") {
+      setEditingProviderData({
+        ...editingProviderData,
+        name: isNewProvider ? "" : editingProviderData?.name || "",
+        api_base_url: "",
+        api_key: editingProviderData?.api_key || "",
+        models: editingProviderData?.models || [],
+      } as ProviderType);
+      return;
+    }
+    const template = providerTemplates.find(p => p.name.toLowerCase() === templateName.toLowerCase());
+    if (template) {
+      setEditingProviderData({
+        ...editingProviderData,
+        name: isNewProvider ? template.name : editingProviderData?.name || template.name,
+        api_base_url: template.api_base_url,
+        api_key: editingProviderData?.api_key || "",
+        models: editingProviderData?.models || [],
+      } as ProviderType);
     }
   };
 
@@ -768,7 +750,10 @@ export function Providers() {
                 <div className="space-y-2">
                   <Label>{t("providers.import_from_template")}</Label>
                   <Combobox
-                    options={providerTemplates.map(p => ({ label: p.name, value: p.name }))}
+                    options={[
+                      ...[...providerTemplates].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(p => ({ label: p.name, value: p.name })),
+                      { label: t("providers.other"), value: "__other__" }
+                    ]}
                     value=""
                     onChange={handleTemplateImport}
                     placeholder={t("providers.select_template")}

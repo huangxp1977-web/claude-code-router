@@ -395,24 +395,30 @@ async function getServer(options: RunOptions = {}) {
         const [originalStream, clonedStream] = payload.tee();
         const read = async (stream: ReadableStream) => {
           const reader = stream.getReader();
+          let buffer = "";
           try {
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
-              // Process the value if needed
-              const dataStr = new TextDecoder().decode(value);
-              if (!dataStr.startsWith("event: message_delta")) {
-                continue;
-              }
-              const str = dataStr.slice(27);
-              try {
-                const message = JSON.parse(str);
-                sessionUsageCache.put(req.sessionId, message.usage);
-                if (req.provider && req.body?.model && message.usage) {
-                  const tokens = (message.usage.input_tokens || 0) + (message.usage.output_tokens || 0);
-                  if (tokens > 0) recordModelUsage(req.provider, req.body.model, tokens);
+              buffer += new TextDecoder().decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith("data:")) {
+                  try {
+                    const message = JSON.parse(trimmed.slice(5).trim());
+                    if (message.type === "message_delta" && message.usage) {
+                      sessionUsageCache.put(req.sessionId, message.usage);
+                      if (req.provider && req.body?.model) {
+                        const tokens = (message.usage.input_tokens || 0) + (message.usage.output_tokens || 0);
+                        if (tokens > 0) recordModelUsage(req.provider, req.body.model, tokens);
+                      }
+                    }
+                  } catch {}
                 }
-              } catch {}
+              }
             }
           } catch (readError: any) {
             if (readError.name === 'AbortError' || readError.code === 'ERR_STREAM_PREMATURE_CLOSE') {
@@ -427,10 +433,23 @@ async function getServer(options: RunOptions = {}) {
         read(clonedStream);
         return done(null, originalStream)
       }
-      sessionUsageCache.put(req.sessionId, payload.usage);
-      if (req.provider && req.body?.model && payload.usage) {
-        const tokens = (payload.usage.input_tokens || 0) + (payload.usage.output_tokens || 0);
-        if (tokens > 0) recordModelUsage(req.provider, req.body.model, tokens);
+      // Non-streaming response: payload may be string/Buffer (Fastify serialized) or object
+      let usage = null;
+      if (payload) {
+        if (typeof payload === "string") {
+          try { usage = JSON.parse(payload).usage; } catch {}
+        } else if (Buffer.isBuffer(payload)) {
+          try { usage = JSON.parse(payload.toString()).usage; } catch {}
+        } else if (typeof payload === "object") {
+          usage = (payload as any).usage;
+        }
+      }
+      if (usage) {
+        sessionUsageCache.put(req.sessionId, usage);
+        if (req.provider && req.body?.model) {
+          const tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0);
+          if (tokens > 0) recordModelUsage(req.provider, req.body.model, tokens);
+        }
       }
       if (typeof payload ==='object') {
         if (payload.error) {

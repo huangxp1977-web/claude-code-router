@@ -92,6 +92,7 @@
     "select_from_available": "从可用模型中选择...",
     "add_selected": "添加选中",
     "no_models_fetched": "未找到模型",
+    "other": "自定义",
     "model_limits": "模型每日 Token 上限",
     "no_limit": "不限制",
     "transformers": "转换器",
