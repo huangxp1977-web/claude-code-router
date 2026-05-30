@@ -18,7 +18,7 @@ try {
   // Build the server application (skipping tsc declaration generation to avoid pre-existing type errors)
   console.log('Building server application...');
   // 使用 minify 和 tree-shaking 优化体积
-  execSync('esbuild src/index.ts --bundle --platform=node --minify --tree-shaking=true --outfile=dist/index.js', {
+  execSync('esbuild src/index.ts --bundle --platform=node --minify --tree-shaking=false --outfile=dist/index.js', {
     stdio: 'inherit',
     cwd: serverDir
   });

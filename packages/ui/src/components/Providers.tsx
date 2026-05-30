@@ -62,7 +62,7 @@ function cleanRouterReferences(
   providerName: string,
   removedModels: string[]
 ): Record<string, any> {
-  if (!router) return {};
+  if (!router) return router || {} as Record<string, any>;
 
   const cleanedRouter = { ...router };
   const specsToRemove = removedModels.map(m => `${providerName},${m}`);
@@ -188,6 +188,7 @@ export function Providers() {
   const handleEditProvider = (index: number) => {
     // Find the actual index in the original providers array
     const actualIndex = validProviders.indexOf(filteredProviders[index]);
+    if (actualIndex === -1) return;
     const provider = config.Providers[actualIndex];
     setEditingProviderIndex(actualIndex);
     setEditingProviderData(JSON.parse(JSON.stringify(provider))); // 深拷贝
@@ -236,6 +237,7 @@ export function Providers() {
     setNameError(null);
     
     if (editingProviderIndex !== null && editingProviderData) {
+      editingProviderData.name = editingProviderData.name.trim();
       const newProviders = [...config.Providers];
       let updatedRouter = config.Router;
 
@@ -248,17 +250,37 @@ export function Providers() {
         const newModels: string[] = editingProviderData.models || [];
         const removedModels = oldModels.filter(m => !newModels.includes(m));
 
-        if (removedModels.length > 0) {
-          updatedRouter = cleanRouterReferences(config.Router, editingProviderData.name, removedModels) as any;
+        if (removedModels.length > 0 && oldProvider) {
+          updatedRouter = cleanRouterReferences(config.Router, oldProvider.name, removedModels) as any;
         }
 
         // Also clean up model-specific transformer configs for removed models
-        if (editingProviderData.transformer) {
+        if (editingProviderData.transformer && removedModels.length > 0) {
           const cleanedTransformer = { ...editingProviderData.transformer };
           for (const removedModel of removedModels) {
             delete cleanedTransformer[removedModel];
           }
           editingProviderData.transformer = cleanedTransformer;
+        }
+
+        // Detect provider name change and update Router references
+        const oldName = oldProvider?.name;
+        const newName = editingProviderData.name?.trim();
+        if (oldName && newName && oldName !== newName && updatedRouter) {
+          const updated = { ...updatedRouter };
+          for (const field of ROUTER_FIELDS) {
+            const value = updated[field];
+            if (typeof value === "string" && value.startsWith(oldName + ",")) {
+              updated[field] = value.replace(oldName + ",", newName + ",");
+            } else if (Array.isArray(value)) {
+              updated[field] = value.map((v: string) =>
+                typeof v === "string" && v.startsWith(oldName + ",")
+                  ? v.replace(oldName + ",", newName + ",")
+                  : v
+              );
+            }
+          }
+          updatedRouter = updated;
         }
 
         newProviders[editingProviderIndex] = editingProviderData;
@@ -312,6 +334,7 @@ export function Providers() {
   const handleRemoveProvider = (filteredIndex: number) => {
     // Find the actual index in the original providers array
     const actualIndex = validProviders.indexOf(filteredProviders[filteredIndex]);
+    if (actualIndex === -1) return;
     const removedProvider = config.Providers[actualIndex];
     const newProviders = [...config.Providers];
     newProviders.splice(actualIndex, 1);
@@ -632,11 +655,16 @@ export function Providers() {
     setIsFetchingModels(true);
     try {
       // Determine transformer name from provider config
-      const transformerName = editingProvider.transformer?.use?.[0];
+      const rawTransformer = editingProvider.transformer?.use?.[0];
+      const transformerName = typeof rawTransformer === "string"
+        ? rawTransformer
+        : Array.isArray(rawTransformer) && typeof rawTransformer[0] === "string"
+        ? rawTransformer[0]
+        : undefined;
       const result = await api.fetchProviderModels(
         editingProvider.api_base_url,
         editingProvider.api_key,
-        typeof transformerName === "string" ? transformerName : undefined
+        transformerName
       );
       if (result.error) {
         setToast({ message: `${t("providers.fetch_models_failed")}: ${result.error}`, type: 'error' });
@@ -788,7 +816,7 @@ export function Providers() {
                 <div className="relative">
                   <Input 
                     id="api_key" 
-                    type={showApiKey[editingProviderIndex || 0] ? "text" : "password"} 
+                    type={showApiKey[editingProviderIndex ?? 0] ? "text" : "password"} 
                     value={editingProvider.api_key || ''} 
                     onChange={(e) => handleProviderChange(editingProviderIndex, 'api_key', e.target.value)} 
                     className={apiKeyError ? "border-red-500" : ""}
@@ -799,14 +827,14 @@ export function Providers() {
                     size="icon"
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8"
                     onClick={() => {
-                      const index = editingProviderIndex || 0;
+                      const index = editingProviderIndex ?? 0;
                       setShowApiKey(prev => ({
                         ...prev,
                         [index]: !prev[index]
                       }));
                     }}
                   >
-                    {showApiKey[editingProviderIndex || 0] ? (
+                    {showApiKey[editingProviderIndex ?? 0] ? (
                       <EyeOff className="h-4 w-4" />
                     ) : (
                       <Eye className="h-4 w-4" />

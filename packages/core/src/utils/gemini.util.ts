@@ -262,7 +262,10 @@ export function buildRequestBody(
   const webSearch = request.tools?.find(
     (tool) => tool.function.name === "web_search" || tool.function.name === "WebSearch"
   );
-  if (webSearch) {
+  // googleSearch cannot coexist with functionCallingConfig.mode="any" (triggered by tool_choice="required")
+  // When tool_choice is "required" or a specific tool, skip googleSearch to avoid 400 error
+  const hasConflictingToolChoice = request.tool_choice === "required" || typeof request.tool_choice === "object";
+  if (webSearch && !hasConflictingToolChoice) {
     tools.push({
       googleSearch: {},
     });

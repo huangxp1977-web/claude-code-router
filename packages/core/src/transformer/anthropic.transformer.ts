@@ -248,6 +248,147 @@ export class AnthropicTransformer implements Transformer {
     }
   }
 
+  async transformRequestIn(
+    request: UnifiedChatRequest,
+    provider: LLMProvider
+  ): Promise<Record<string, any>> {
+    const messages: any[] = [];
+    let systemPrompt = "";
+
+    for (const msg of request.messages) {
+      if (msg.role === "system") {
+        let contentStr = "";
+        if (typeof msg.content === "string") {
+          contentStr = msg.content;
+        } else if (Array.isArray(msg.content)) {
+          contentStr = msg.content
+            .filter((c: any) => c.type === "text" && c.text)
+            .map((c: any) => c.text)
+            .join("\n");
+        }
+        if (contentStr) {
+          systemPrompt = systemPrompt ? `${systemPrompt}\n\n${contentStr}` : contentStr;
+        }
+      } else if (msg.role === "user" || msg.role === "assistant") {
+        const content: any[] = [];
+        if (typeof msg.content === "string") {
+          content.push({ type: "text", text: msg.content });
+        } else if (Array.isArray(msg.content)) {
+          msg.content.forEach((item: any) => {
+            if (item.type === "text") {
+              content.push({ type: "text", text: item.text || "" });
+            } else if (item.type === "image_url") {
+              let base64Data = item.image_url.url;
+              if (base64Data.includes("base64,")) {
+                base64Data = base64Data.split("base64,").pop() || "";
+              }
+              content.push({
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: item.media_type || "image/jpeg",
+                  data: base64Data,
+                },
+              });
+            }
+          });
+        }
+        // Convert OpenAI tool_calls to Anthropic tool_use
+        if (msg.role === "assistant" && (msg as any).tool_calls?.length) {
+          (msg as any).tool_calls.forEach((toolCall: any) => {
+            let parsedInput: any = {};
+            try {
+              parsedInput =
+                typeof toolCall.function.arguments === "string"
+                  ? JSON.parse(toolCall.function.arguments)
+                  : toolCall.function.arguments || {};
+            } catch {
+              parsedInput = { text: toolCall.function.arguments || "" };
+            }
+            content.push({
+              type: "tool_use",
+              id: toolCall.id,
+              name: toolCall.function.name,
+              input: parsedInput,
+            });
+          });
+        }
+        if (content.length > 0) {
+          messages.push({ role: msg.role, content });
+        }
+      } else if (msg.role === "tool") {
+        const toolResultBlock: any = {
+          type: "tool_result",
+          tool_use_id: msg.tool_call_id,
+          content: msg.content,
+        };
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage && lastMessage.role === "user" && Array.isArray(lastMessage.content)) {
+          lastMessage.content.push(toolResultBlock);
+        } else {
+          messages.push({ role: "user", content: [toolResultBlock] });
+        }
+      }
+    }
+
+    const body: Record<string, any> = {
+      model: request.model,
+      messages,
+      max_tokens: request.max_tokens || 4000,
+    };
+    if (systemPrompt) body.system = systemPrompt;
+    if (request.temperature !== undefined) body.temperature = request.temperature;
+    if (request.stream !== undefined) body.stream = request.stream;
+
+    // Convert unified tools to Anthropic format
+    if (request.tools?.length) {
+      const regularTools = request.tools.filter(
+        (tool) => tool.function.name !== "web_search" && tool.function.name !== "WebSearch"
+      );
+      const hasWebSearch = request.tools.some(
+        (tool) => tool.function.name === "web_search" || tool.function.name === "WebSearch"
+      );
+      body.tools = regularTools.map((tool) => ({
+        name: tool.function.name,
+        description: tool.function.description || "",
+        input_schema: tool.function.parameters,
+      }));
+      if (hasWebSearch) {
+        body.tools.push({
+          type: "web_search_20250305",
+          name: "web_search",
+          max_uses: 5,
+        });
+      }
+    }
+
+    // Handle tool_choice
+    if (request.tool_choice) {
+      if (request.tool_choice === "auto") {
+        body.tool_choice = { type: "auto" };
+      } else if (request.tool_choice === "any" || request.tool_choice === "required") {
+        body.tool_choice = { type: "any" };
+      } else if (typeof request.tool_choice === "string") {
+        body.tool_choice = { type: "tool", name: request.tool_choice };
+      } else if (typeof request.tool_choice === "object") {
+        const toolName = (request.tool_choice as any).function?.name || (request.tool_choice as any).name;
+        if (toolName) {
+          body.tool_choice = { type: "tool", name: toolName };
+        }
+      }
+    }
+
+    // Handle reasoning/thinking
+    if (request.reasoning?.enabled && request.reasoning.max_tokens) {
+      body.thinking = {
+        type: "enabled",
+        budget_tokens: request.reasoning.max_tokens,
+      };
+    }
+
+    return { body, config: {} };
+  }
+
   private convertAnthropicToolsToUnified(tools: any[]): UnifiedTool[] {
     return tools.map((tool) => ({
       type: "function",

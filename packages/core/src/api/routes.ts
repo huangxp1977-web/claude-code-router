@@ -82,7 +82,8 @@ async function handleTransformerEndpoint(
         currentProvider,
         currentTransformer,
         req.headers,
-        { req }
+        { req },
+        fastify
       );
 
       // Send request to LLM provider
@@ -111,7 +112,45 @@ async function handleTransformerEndpoint(
     } catch (error: any) {
       retryCount++;
       req.log.warn(`[Fallback] Error on attempt ${retryCount}: ${error.message?.substring(0, 100)}`);
-      
+
+      // Auto-fix max_tokens: detect limit error, correct value, retry same model
+      const errorMsg = error.message || error.error?.message || "";
+      const maxTokenMatch = errorMsg.match(/(?:max_tokens|should be\s*<=\s*|a value\s*<=\s*)(\d{2,})/i)
+        || errorMsg.match(/(?:<=|<)\s*(\d{4,})/);
+      if (maxTokenMatch && error.statusCode === 400) {
+        const correctMax = parseInt(maxTokenMatch[1], 10);
+        if (correctMax > 0 && correctMax < (currentBody.max_tokens || Infinity)) {
+          req.log.warn(`[AutoFix] max_tokens ${currentBody.max_tokens} -> ${correctMax} for ${currentProvider.name},${currentBody.model}`);
+          currentBody = { ...currentBody, max_tokens: correctMax };
+          body.max_tokens = correctMax;
+          // Update config.json in background for future requests
+          try {
+            const configPath = require("os").homedir() + "/.claude-code-router/config.json";
+            const fs = require("fs");
+            const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+            const providers = cfg.Providers || cfg.providers;
+            const prov = providers?.find((p: any) => p.name === currentProvider.name);
+            if (prov) {
+              if (!prov.transformer) prov.transformer = {};
+              if (!prov.transformer[currentBody.model]) {
+                prov.transformer[currentBody.model] = { use: [] };
+              } else if (!prov.transformer[currentBody.model].use) {
+                prov.transformer[currentBody.model].use = [];
+              }
+              const modelUse = prov.transformer[currentBody.model].use;
+              const existing = modelUse.find((t: any) => Array.isArray(t) && t[0] === "maxtoken");
+              if (existing) { existing[1].max_tokens = correctMax; }
+              else { modelUse.push(["maxtoken", { max_tokens: correctMax }]); }
+              fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2));
+              req.log.info(`[AutoFix] Config updated: ${currentProvider.name} ${currentBody.model} max_tokens=${correctMax}`);
+            }
+          } catch (e: any) {
+            req.log.error(`[AutoFix] Failed to update config.json: ${e.message}`);
+          }
+          continue; // Retry same model with corrected max_tokens
+        }
+      }
+
       // Try to get a fallback model
       const fallbackModel = await getFallbackModel(req, fastify, error);
       if (fallbackModel) {
@@ -120,9 +159,9 @@ async function handleTransformerEndpoint(
         // Update state for next iteration
         currentProvider = fallbackModel.provider;
         currentTransformer = fallbackModel.transformerConfig || currentTransformer;
-        // Update body to match the new model
-        body.model = fallbackModel.modelName;
+        // Update body to match the new model and re-process transformers
         currentBody = { ...body, model: fallbackModel.modelName };
+        body.model = fallbackModel.modelName;
         
         continue; // Try again with the new model
       }
@@ -216,7 +255,8 @@ async function processRequestTransformers(
   provider: any,
   transformer: any,
   headers: any,
-  context: any
+  context: any,
+  fastify?: any
 ) {
   let requestBody = body;
   let config: any = {};
@@ -248,13 +288,18 @@ async function processRequestTransformers(
   // Execute provider-level transformers
   if (!bypass && provider.transformer?.use?.length) {
     for (const providerTransformer of provider.transformer.use) {
+      // providerTransformer may be a string name or a transformer instance
+      let transformerInstance = providerTransformer;
+      if (typeof providerTransformer === "string" && fastify?.transformerService) {
+        transformerInstance = fastify.transformerService.getTransformer(providerTransformer);
+      }
       if (
-        !providerTransformer ||
-        typeof providerTransformer.transformRequestIn !== "function"
+        !transformerInstance ||
+        typeof transformerInstance.transformRequestIn !== "function"
       ) {
         continue;
       }
-      const transformIn = await providerTransformer.transformRequestIn(
+      const transformIn = await transformerInstance.transformRequestIn(
         requestBody,
         provider,
         context
@@ -271,13 +316,17 @@ async function processRequestTransformers(
   // Execute model-specific transformers
   if (!bypass && provider.transformer?.[body.model]?.use?.length) {
     for (const modelTransformer of provider.transformer[body.model].use) {
+      let transformerInstance = modelTransformer;
+      if (typeof modelTransformer === "string" && fastify?.transformerService) {
+        transformerInstance = fastify.transformerService.getTransformer(modelTransformer);
+      }
       if (
-        !modelTransformer ||
-        typeof modelTransformer.transformRequestIn !== "function"
+        !transformerInstance ||
+        typeof transformerInstance.transformRequestIn !== "function"
       ) {
         continue;
       }
-      requestBody = await modelTransformer.transformRequestIn(
+      requestBody = await transformerInstance.transformRequestIn(
         requestBody,
         provider,
         context
