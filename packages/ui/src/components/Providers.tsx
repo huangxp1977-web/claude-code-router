@@ -40,7 +40,7 @@ import type { Provider } from "@/types";
 interface ProviderType extends Provider {}
 
 // Router fields that may reference provider models
-const ROUTER_FIELDS = ['default', 'background', 'think', 'longContext', 'webSearch', 'image'] as const;
+const ROUTER_FIELDS = ['default', 'background', 'think', 'webSearch', 'image'] as const;
 
 // Transformers that accept user-configurable parameters
 const TRANSFORMERS_WITH_PARAMS = ['anthropic', 'customparams', 'maxtoken', 'openrouter', 'reasoning', 'sampling', 'vercel'];

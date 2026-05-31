@@ -394,6 +394,14 @@ async function sendRequestToProvider(
     }
   }
 
+  // Auto-inject stream_options for OpenAI-compatible streaming requests
+  // This ensures usage data is returned in the final chunk
+  if (requestBody.stream && provider.api_base_url?.includes("/chat/completions")) {
+    requestBody.stream_options = {
+      include_usage: true,
+    };
+  }
+
   // Send HTTP request
   // Prepare headers
   const requestHeaders: Record<string, string> = {

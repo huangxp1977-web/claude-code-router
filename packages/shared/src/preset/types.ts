@@ -109,8 +109,6 @@ export interface RouterConfig {
   default?: string | string[];
   background?: string | string[];
   think?: string | string[];
-  longContext?: string | string[];
-  longContextThreshold?: number;
   webSearch?: string | string[];
   image?: string | string[];
   [key: string]: string | string[] | number | undefined;

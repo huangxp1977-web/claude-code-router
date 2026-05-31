@@ -198,8 +198,6 @@ Here is a comprehensive example:
     "default": "deepseek,deepseek-chat",
     "background": "ollama,qwen2.5-coder:latest",
     "think": "deepseek,deepseek-reasoner",
-    "longContext": "openrouter,google/gemini-2.5-pro-preview",
-    "longContextThreshold": 60000,
     "webSearch": "gemini,gemini-2.5-flash"
   }
 }
@@ -243,7 +241,7 @@ ccr model
 This command provides an interactive interface to:
 
 - View current configuration:
-- See all configured models (default, background, think, longContext, webSearch, image)
+- See all configured models (default, background, think, webSearch, image)
 - Switch models: Quickly change which model is used for each router type
 - Add new models: Add models to existing providers
 - Create new providers: Set up complete provider configurations including:
@@ -444,8 +442,6 @@ The `Router` object defines which model to use for different scenarios:
 - `default`: The default model for general tasks.
 - `background`: A model for background tasks. This can be a smaller, local model to save costs.
 - `think`: A model for reasoning-heavy tasks, like Plan Mode.
-- `longContext`: A model for handling long contexts (e.g., > 60K tokens).
-- `longContextThreshold` (optional): The token count threshold for triggering the long context model. Defaults to 60000 if not specified.
 - `webSearch`: Used for handling web search tasks and this requires the model itself to support the feature. If you're using openrouter, you need to add the `:online` suffix after the model name.
 - `image` (beta): Used for handling image-related tasks (supported by CCR’s built-in agent). If the model does not support tool calling, you need to set the `config.forceUseImageAgent` property to `true`.
 

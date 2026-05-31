@@ -199,17 +199,6 @@ const getUseModel = async (
     return null;
   };
 
-  // if tokenCount is greater than the configured threshold, use the long context model
-  const longContextThreshold = Router?.longContextThreshold || 60000;
-  if (tokenCount > longContextThreshold && Router?.longContext) {
-    req.log.info(
-      `Using long context model due to token count: ${tokenCount}, threshold: ${longContextThreshold}`
-    );
-    const model = getValidModel(Router.longContext);
-    if (model) {
-      return { model, scenarioType: 'longContext' };
-    }
-  }
   if (
     req.body?.system?.length > 1 &&
     req.body?.system[1]?.text?.startsWith("<CCR-SUBAGENT-MODEL>")
@@ -238,18 +227,40 @@ const getUseModel = async (
     }
   }
   // The priority of websearch must be higher than thinking.
-  if (
-    Array.isArray(req.body.tools) &&
-    req.body.tools.some((tool: any) => tool.type?.startsWith("web_search") || tool.name === "WebSearch" || tool.function?.name === "WebSearch") &&
-    Router?.webSearch
-  ) {
+  // Check if there's actual web search usage in the message history
+  const hasWebSearchUsage = Array.isArray(req.body.messages) && req.body.messages.some((message: MessageParam) => {
+    if (Array.isArray(message.content)) {
+      return message.content.some((block: ContentBlockParam) => {
+        // Check for tool_use blocks with WebSearch name (indicates actual search was initiated)
+        if (block.type === 'tool_use' && (block.name === 'WebSearch' || block.name === 'web_search')) {
+          return true;
+        }
+        // Check for tool_result blocks with tool_use_id that might be from WebSearch
+        // This catches cases where the search has completed and results are in the conversation
+        if (block.type === 'tool_result') {
+          // Look for web search indicators in the content
+          const content = typeof block.content === 'string' ? block.content : JSON.stringify(block.content);
+          if (content && (content.includes('web_search') || content.includes('WebSearch'))) {
+            return true;
+          }
+        }
+        return false;
+      });
+    }
+    return false;
+  });
+
+  if (hasWebSearchUsage && Router?.webSearch) {
     const model = getValidModel(Router.webSearch);
     if (model) {
       return { model, scenarioType: 'webSearch' };
     }
   }
   // if exits thinking, use the think model
-  if (req.body.thinking && Router?.think) {
+  // Check if thinking has actual content (not empty object or empty string)
+  const hasThinking = req.body.thinking === true ||
+    (typeof req.body.thinking === 'object' && req.body.thinking !== null && req.body.thinking.type === 'enabled');
+  if (hasThinking && Router?.think) {
     req.log.info(`Using think model for ${req.body.thinking}`);
     const model = getValidModel(Router.think);
     if (model) {
@@ -274,13 +285,12 @@ export interface RouterContext {
   event?: any;
 }
 
-export type RouterScenarioType = 'default' | 'background' | 'think' | 'longContext' | 'webSearch';
+export type RouterScenarioType = 'default' | 'background' | 'think' | 'webSearch';
 
 export interface RouterFallbackConfig {
   default?: string[];
   background?: string[];
   think?: string[];
-  longContext?: string[];
   webSearch?: string[];
 }
 

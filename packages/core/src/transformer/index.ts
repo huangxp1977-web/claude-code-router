@@ -13,7 +13,6 @@ import { SamplingTransformer } from "./sampling.transformer";
 import { MaxCompletionTokens } from "./maxcompletiontokens.transformer";
 import { VertexClaudeTransformer } from "./vertex-claude.transformer";
 import { CerebrasTransformer } from "./cerebras.transformer";
-import { StreamOptionsTransformer } from "./streamoptions.transformer";
 import { OpenAITransformer } from "./openai.transformer";
 import { CustomParamsTransformer } from "./customparams.transformer";
 import { VercelTransformer } from "./vercel.transformer";
@@ -39,7 +38,6 @@ export default {
   SamplingTransformer,
   MaxCompletionTokens,
   CerebrasTransformer,
-  StreamOptionsTransformer,
   CustomParamsTransformer,
   VercelTransformer,
   OpenAIResponsesTransformer,

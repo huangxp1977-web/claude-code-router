@@ -55,7 +55,6 @@ The routing logic determines which model a request should be sent to:
 - **Built-in scenario routing**:
   - `background`: Background tasks (typically lightweight models)
   - `think`: Thinking-intensive tasks (Plan Mode)
-  - `longContext`: Long context (exceeds `longContextThreshold` tokens)
   - `webSearch`: Web search tasks
   - `image`: Image-related tasks
 

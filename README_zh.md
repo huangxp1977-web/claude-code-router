@@ -173,8 +173,6 @@ npm install -g @thxp/claude-code-router
     "default": "deepseek,deepseek-chat",
     "background": "ollama,qwen2.5-coder:latest",
     "think": "deepseek,deepseek-reasoner",
-    "longContext": "openrouter,google/gemini-2.5-pro-preview",
-    "longContextThreshold": 60000,
     "webSearch": "gemini,gemini-2.5-flash"
   }
 }
@@ -217,7 +215,7 @@ ccr model
 该命令提供交互式界面来：
 
 - 查看当前配置
-- 查看所有配置的模型（default、background、think、longContext、webSearch、image）
+- 查看所有配置的模型（default、background、think、webSearch、image）
 - 切换模型：快速更改每个路由器类型使用的模型
 - 添加新模型：向现有提供商添加模型
 - 创建新提供商：设置完整的提供商配置，包括：
@@ -416,8 +414,6 @@ Transformers 允许您修改请求和响应负载，以确保与不同提供商 
 -   `default`: 用于常规任务的默认模型。
 -   `background`: 用于后台任务的模型。这可以是一个较小的本地模型以节省成本。
 -   `think`: 用于推理密集型任务（如计划模式）的模型。
--   `longContext`: 用于处理长上下文（例如，> 60K 令牌）的模型。
--   `longContextThreshold` (可选): 触发长上下文模型的令牌数阈值。如果未指定，默认为 60000。
 -   `webSearch`: 用于处理网络搜索任务，需要模型本身支持。如果使用`openrouter`需要在模型后面加上`:online`后缀。
 -   `image`(测试版): 用于处理图片类任务（采用CCR内置的agent支持），如果该模型不支持工具调用，需要将`config.forceUseImageAgent`属性设置为`true`。
 

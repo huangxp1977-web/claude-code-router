@@ -117,10 +117,8 @@
   "router": {
     "title": "Router",
     "default": "Default",
-    "background": "Background",
+    "background": "Background (only Haiku)",
     "think": "Think",
-    "longContext": "Long Context",
-    "longContextThreshold": "Context Threshold",
     "webSearch": "Web Search",
     "image": "Image",
     "forceUseImageAgent": "Force Use Image Agent",

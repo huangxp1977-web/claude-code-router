@@ -117,10 +117,8 @@
   "router": {
     "title": "路由",
     "default": "默认",
-    "background": "后台",
+    "background": "后台 (仅 Haiku)",
     "think": "思考",
-    "longContext": "长上下文",
-    "longContextThreshold": "上下文阈值",
     "webSearch": "网络搜索",
     "image": "图像",
     "forceUseImageAgent": "强制使用图像代理",

@@ -29,8 +29,6 @@ interface RouterConfig {
   default: string;
   background?: string;
   think?: string;
-  longContext?: string;
-  longContextThreshold?: number;
   webSearch?: string;
   image?: string;
   [key: string]: string | number | undefined;
@@ -130,12 +128,7 @@ function displayCurrentConfig(config: Config): void {
     console.log(`${BOLDCYAN}Think Model:${RESET}`);
     console.log(`  ${formatModel(config.Router.think)}\n`);
   }
-  
-  if (config.Router.longContext) {
-    console.log(`${BOLDCYAN}Long Context Model:${RESET}`);
-    console.log(`  ${formatModel(config.Router.longContext)}\n`);
-  }
-  
+
   if (config.Router.webSearch) {
     console.log(`${BOLDCYAN}Web Search Model:${RESET}`);
     console.log(`  ${formatModel(config.Router.webSearch)}\n`);
@@ -158,7 +151,6 @@ async function selectModelType() {
       { name: 'Default Model', value: 'default' },
       { name: 'Background Model', value: 'background' },
       { name: 'Think Model', value: 'think' },
-      { name: 'Long Context Model', value: 'longContext' },
       { name: 'Web Search Model', value: 'webSearch' },
       { name: 'Image Model', value: 'image' },
       { name: `${BOLDGREEN}+ Add New Model${RESET}`, value: 'addModel' }
@@ -312,12 +304,11 @@ async function addModelToExistingProvider(config: Config, providerName: string):
         { name: 'Default Model', value: 'default' },
         { name: 'Background Model', value: 'background' },
         { name: 'Think Model', value: 'think' },
-        { name: 'Long Context Model', value: 'longContext' },
         { name: 'Web Search Model', value: 'webSearch' },
         { name: 'Image Model', value: 'image' }
       ]
     }) as string;
-    
+
     return { providerName, modelName, modelType };
   }
   
@@ -416,15 +407,14 @@ async function addNewProvider(config: Config): Promise<ModelResult | null> {
         { name: 'Default Model', value: 'default' },
         { name: 'Background Model', value: 'background' },
         { name: 'Think Model', value: 'think' },
-        { name: 'Long Context Model', value: 'longContext' },
         { name: 'Web Search Model', value: 'webSearch' },
         { name: 'Image Model', value: 'image' }
       ]
     }) as string;
-    
+
     return { providerName, modelName: selectedModel, modelType };
   }
-  
+
   return null;
 }
 

@@ -28,8 +28,6 @@ export function Router() {
     default: [],
     background: [],
     think: [],
-    longContext: [],
-    longContextThreshold: 60000,
     webSearch: [],
     image: []
   };
@@ -110,30 +108,6 @@ export function Router() {
             searchPlaceholder={t("router.searchModel")}
             emptyPlaceholder={t("router.noModelFound")}
           />
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <Label>{t("router.longContext")}</Label>
-              <MultiCombobox
-                options={modelOptions}
-                value={getArrayValue(routerConfig.longContext)}
-                onChange={(value) => handleRouterChange("longContext", value)}
-                placeholder={t("router.selectModel")}
-                searchPlaceholder={t("router.searchModel")}
-                emptyPlaceholder={t("router.noModelFound")}
-              />
-            </div>
-            <div className="w-48">
-              <Label>{t("router.longContextThreshold")}</Label>
-              <Input
-                type="number"
-                value={routerConfig.longContextThreshold || 60000}
-                onChange={(e) => handleRouterChange("longContextThreshold", parseInt(e.target.value) || 60000)}
-                placeholder="60000"
-              />
-            </div>
-          </div>
         </div>
         <div className="space-y-2">
           <Label>{t("router.webSearch")}</Label>
