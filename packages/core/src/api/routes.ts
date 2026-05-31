@@ -524,8 +524,21 @@ async function formatResponse(response: any, reply: FastifyReply, body: any) {
     reply.header("Connection", "keep-alive");
     return reply.send(response.body);
   } else {
-    // 防御性读取响应文本，避免非 JSON 文本导致的 SyntaxError 崩溃
-    const rawText = await response.text();
+    // Check if response is gzip compressed
+    const contentEncoding = response.headers.get("Content-Encoding");
+    let rawText: string;
+
+    if (contentEncoding === "gzip") {
+      // Decompress gzip response
+      const { gunzipSync } = await import("zlib");
+      const buffer = await response.arrayBuffer();
+      const decompressed = gunzipSync(Buffer.from(buffer));
+      rawText = decompressed.toString("utf-8");
+    } else {
+      // 防御性读取响应文本，避免非 JSON 文本导致的 SyntaxError 崩溃
+      rawText = await response.text();
+    }
+
     try {
       return JSON.parse(rawText);
     } catch (jsonError: any) {

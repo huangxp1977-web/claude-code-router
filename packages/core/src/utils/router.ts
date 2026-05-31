@@ -1,5 +1,5 @@
 import { get_encoding } from "tiktoken";
-import { sessionUsageCache, Usage, isModelFailed, getModelSpec } from "./cache";
+import { isModelFailed, getModelSpec } from "./cache";
 import { getModelUsage } from "./dailyUsage";
 import { readFile } from "fs/promises";
 import { opendir, stat } from "fs/promises";
@@ -125,8 +125,7 @@ const getProjectSpecificRouter = async (
 const getUseModel = async (
   req: any,
   tokenCount: number,
-  configService: ConfigService,
-  lastUsage?: Usage | undefined
+  configService: ConfigService
 ): Promise<{ model: string; scenarioType: RouterScenarioType }> => {
   const projectSpecificRouter = await getProjectSpecificRouter(req, configService);
   const providers = configService.get<any[]>("providers") || [];
@@ -158,7 +157,7 @@ const getUseModel = async (
   const getValidModel = (modelConfig: string | string[] | undefined): string | null => {
     if (!modelConfig) return null;
 
-    // If it's a string, check daily limit before returning
+    // If it's a string, check daily limit and failed status before returning
     if (typeof modelConfig === 'string') {
       let pName = "";
       let mName = "";
@@ -171,6 +170,7 @@ const getUseModel = async (
       }
       if (pName && mName) {
         const provider = providers.find((p: any) => p.name.toLowerCase() === pName.toLowerCase());
+        if (provider && isModelFailed(getModelSpec(pName, mName))) return null;
         if (provider && isModelCapped(provider, mName)) return null;
       }
       return modelConfig;
@@ -201,12 +201,7 @@ const getUseModel = async (
 
   // if tokenCount is greater than the configured threshold, use the long context model
   const longContextThreshold = Router?.longContextThreshold || 60000;
-  const lastUsageThreshold =
-    lastUsage &&
-    lastUsage.input_tokens > longContextThreshold &&
-    tokenCount > 20000;
-  const tokenCountThreshold = tokenCount > longContextThreshold;
-  if ((lastUsageThreshold || tokenCountThreshold) && Router?.longContext) {
+  if (tokenCount > longContextThreshold && Router?.longContext) {
     req.log.info(
       `Using long context model due to token count: ${tokenCount}, threshold: ${longContextThreshold}`
     );
@@ -231,14 +226,13 @@ const getUseModel = async (
     }
   }
   // Use the background model for any Claude Haiku variant
-  const globalRouter = configService.get("Router");
   if (
     req.body.model?.includes("claude") &&
     req.body.model?.includes("haiku") &&
-    globalRouter?.background
+    Router?.background
   ) {
     req.log.info(`Using background model for ${req.body.model}`);
-    const model = getValidModel(globalRouter.background);
+    const model = getValidModel(Router.background);
     if (model) {
       return { model, scenarioType: 'background' };
     }
@@ -246,7 +240,7 @@ const getUseModel = async (
   // The priority of websearch must be higher than thinking.
   if (
     Array.isArray(req.body.tools) &&
-    req.body.tools.some((tool: any) => tool.type?.startsWith("web_search") || tool.name === "WebSearch") &&
+    req.body.tools.some((tool: any) => tool.type?.startsWith("web_search") || tool.name === "WebSearch" || tool.function?.name === "WebSearch") &&
     Router?.webSearch
   ) {
     const model = getValidModel(Router.webSearch);
@@ -298,12 +292,20 @@ export const router = async (req: any, _res: any, context: RouterContext) => {
   }
   // Parse sessionId from metadata.user_id
   if (req.body.metadata?.user_id) {
-    const parts = req.body.metadata.user_id.split("_session_");
-    if (parts.length > 1) {
-      req.sessionId = parts[1];
+    try {
+      // Try to parse as JSON string (Claude Code format)
+      const userIdData = JSON.parse(req.body.metadata.user_id);
+      if (userIdData.session_id) {
+        req.sessionId = userIdData.session_id;
+      }
+    } catch {
+      // Fallback: try legacy _session_ separator format
+      const parts = req.body.metadata.user_id.split("_session_");
+      if (parts.length > 1) {
+        req.sessionId = parts[1];
+      }
     }
   }
-  const lastMessageUsage = sessionUsageCache.get(req.sessionId);
   const { messages, system = [], tools }: MessageCreateParamsBase = req.body;
   const rewritePrompt = configService.get("REWRITE_SYSTEM_PROMPT");
   if (
@@ -317,7 +319,7 @@ export const router = async (req: any, _res: any, context: RouterContext) => {
 
   try {
     // Try to get tokenizer config for the current model
-    const [providerName, modelName] = req.body.model.split(",");
+    const [providerName, modelName] = (req.body.model || "").split(",");
     const tokenizerConfig = context.tokenizerService?.getTokenizerConfigForModel(
       providerName,
       modelName
@@ -359,7 +361,7 @@ export const router = async (req: any, _res: any, context: RouterContext) => {
       }
     }
     if (!model) {
-      const result = await getUseModel(req, tokenCount, configService, lastMessageUsage);
+      const result = await getUseModel(req, tokenCount, configService);
       model = result.model;
       req.scenarioType = result.scenarioType;
     } else {
@@ -367,12 +369,20 @@ export const router = async (req: any, _res: any, context: RouterContext) => {
       req.scenarioType = 'default';
     }
     req.body.model = model;
+    // Extract provider from model format (provider,model) - only if not already set
+    if (!req.provider && model && model.includes(",")) {
+      req.provider = model.split(",")[0];
+    }
   } catch (error: any) {
     req.log.error(`Error in router middleware: ${error.message}`);
     const Router = configService.get("Router");
     const defaultVal = Router?.default;
     req.body.model = Array.isArray(defaultVal) ? defaultVal[0] : defaultVal;
     req.scenarioType = 'default';
+    // Extract provider from model format (provider,model) - only if not already set
+    if (!req.provider && req.body.model && req.body.model.includes(",")) {
+      req.provider = req.body.model.split(",")[0];
+    }
   }
   return;
 };
@@ -438,6 +448,7 @@ export const searchProjectBySession = async (
     sessionProjectCache.set(sessionId, '');
     return null; // No matching project found
   } catch (error) {
+    // Note: req is not available here, using console.error as fallback
     console.error("Error searching for project by session:", error);
     // Cache null result on error to avoid repeated errors
     sessionProjectCache.set(sessionId, '');
