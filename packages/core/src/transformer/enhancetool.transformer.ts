@@ -24,6 +24,14 @@ export class EnhanceToolTransformer implements Transformer {
           }
         }
       }
+      // Ensure usage is in the response for non-streaming case
+      if (jsonResponse.usage) {
+        jsonResponse.usage = {
+          input_tokens: (jsonResponse.usage?.prompt_tokens || 0) - (jsonResponse.usage?.prompt_tokens_details?.cached_tokens || 0),
+          output_tokens: jsonResponse.usage?.completion_tokens || 0,
+          cache_read_input_tokens: jsonResponse.usage?.prompt_tokens_details?.cached_tokens || 0,
+        };
+      }
       return new Response(JSON.stringify(jsonResponse), {
         status: response.status,
         statusText: response.statusText,
@@ -214,6 +222,23 @@ export class EnhanceToolTransformer implements Transformer {
                   } else {
                     data.choices[0].index = 1;
                   }
+                }
+
+                // Convert OpenAI usage to Anthropic message_delta event
+                if (data.usage) {
+                  const messageDelta = {
+                    type: "message_delta",
+                    delta: {
+                      stop_reason: "end_turn",
+                      stop_sequence: null,
+                    },
+                    usage: {
+                      input_tokens: (data.usage?.prompt_tokens || 0) - (data.usage?.prompt_tokens_details?.cached_tokens || 0),
+                      output_tokens: data.usage?.completion_tokens || 0,
+                      cache_read_input_tokens: data.usage?.prompt_tokens_details?.cached_tokens || 0,
+                    },
+                  };
+                  controller.enqueue(encoder.encode(`event: message_delta\ndata: ${JSON.stringify(messageDelta)}\n\n`));
                 }
 
                 const modifiedLine = `data: ${JSON.stringify(data)}\n\n`;

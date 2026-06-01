@@ -21,7 +21,7 @@
 
 ## ✨ Features
 
-- **Model Routing**: Route requests to different models based on your needs (e.g., background tasks, thinking, long context).
+- **Model Routing**: Route requests to different models based on your needs (e.g., background, thinking, web search).
 - **Multi-Provider Support**: Supports various model providers like OpenRouter, DeepSeek, Ollama, Gemini, Volcengine, and SiliconFlow.
 - **Request/Response Transformation**: Customize requests and responses for different providers using transformers.
 - **Dynamic Model Switching**: Switch models on-the-fly within Claude Code using the `/model` command.
@@ -437,13 +437,13 @@ You can also create your own transformers and load them via the `transformers` f
 
 #### Router
 
-The `Router` object defines which model to use for different scenarios:
+The `Router` object defines which model to use for different scenarios. All requests start with the `default` model, and are overridden when specific conditions are met:
 
-- `default`: The default model for general tasks.
-- `background`: A model for background tasks. This can be a smaller, local model to save costs.
-- `think`: A model for reasoning-heavy tasks, like Plan Mode.
-- `webSearch`: Used for handling web search tasks and this requires the model itself to support the feature. If you're using openrouter, you need to add the `:online` suffix after the model name.
-- `image` (beta): Used for handling image-related tasks (supported by CCR’s built-in agent). If the model does not support tool calling, you need to set the `config.forceUseImageAgent` property to `true`.
+- `default`: The default model for all requests (array supported for fallback chain).
+- `background`: Overrides for Haiku model requests only (model name contains "claude" and "haiku"). Useful for routing lightweight Haiku tasks to a cheaper model.
+- `think`: Overrides when thinking is explicitly enabled (thinking: true or type: "enabled"). Adaptive thinking does not trigger this route.
+- `webSearch`: Overrides when actual web search tool calls are detected in the conversation history (not just because the WebSearch tool is available).
+- `image` (beta): Overrides for image-related tasks (requires model to support tool calling; set config.forceUseImageAgent to true if not).
 
 - You can also switch models dynamically in Claude Code with the `/model` command:
 `/model provider_name,model_name`

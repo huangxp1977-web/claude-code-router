@@ -409,18 +409,17 @@ Transformers 允许您修改请求和响应负载，以确保与不同提供商 
 
 #### Router
 
-`Router` 对象定义了在不同场景下使用哪个模型：
+Router 对象定义了在不同场景下使用哪个模型。所有请求默认使用 `default` 模型，满足特定条件时跳转到对应的覆盖模型：
 
--   `default`: 用于常规任务的默认模型。
--   `background`: 用于后台任务的模型。这可以是一个较小的本地模型以节省成本。
--   `think`: 用于推理密集型任务（如计划模式）的模型。
--   `webSearch`: 用于处理网络搜索任务，需要模型本身支持。如果使用`openrouter`需要在模型后面加上`:online`后缀。
--   `image`(测试版): 用于处理图片类任务（采用CCR内置的agent支持），如果该模型不支持工具调用，需要将`config.forceUseImageAgent`属性设置为`true`。
+- `default`: 所有请求的默认模型（支持数组作为回退链）。
+- `background`: 仅当请求的模型是 Haiku 变体时覆盖（模型名包含 claude 和 haiku）。适用于将轻量 Haiku 任务路由到更便宜的模型。
+- `think`: 仅在明确启用思考时覆盖（thinking: true 或 type: "enabled"）。自适应思考不触发此路由。
+- `webSearch`: 仅在对话历史中检测到实际的 web search 工具调用时覆盖（不是因为工具列表中有 WebSearch 就触发）。
+- `image`（beta）: 用于图像相关任务的覆盖（需要模型支持工具调用；如不支持需设置 config.forceUseImageAgent 为 true）。
 
 您还可以使用 `/model` 命令在 Claude Code 中动态切换模型：
 `/model provider_name,model_name`
 示例: `/model openrouter,anthropic/claude-3.5-sonnet`
-
 #### 自定义路由器
 
 对于更高级的路由逻辑，您可以在 `config.json` 中通过 `CUSTOM_ROUTER_PATH` 字段指定一个自定义路由器脚本。这允许您实现超出默认场景的复杂路由规则。

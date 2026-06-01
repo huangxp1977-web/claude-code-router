@@ -235,15 +235,6 @@ const getUseModel = async (
         if (block.type === 'tool_use' && (block.name === 'WebSearch' || block.name === 'web_search')) {
           return true;
         }
-        // Check for tool_result blocks with tool_use_id that might be from WebSearch
-        // This catches cases where the search has completed and results are in the conversation
-        if (block.type === 'tool_result') {
-          // Look for web search indicators in the content
-          const content = typeof block.content === 'string' ? block.content : JSON.stringify(block.content);
-          if (content && (content.includes('web_search') || content.includes('WebSearch'))) {
-            return true;
-          }
-        }
         return false;
       });
     }
@@ -271,11 +262,13 @@ const getUseModel = async (
   // Handle default case with array support
   const defaultModel = getValidModel(Router?.default);
   if (defaultModel) {
+    req.log.info(`ROUTER_DEBUG: default route model=${defaultModel}`);
     return { model: defaultModel, scenarioType: 'default' };
   }
 
   // Fallback to original behavior if no valid model found
   const fallbackModel = Array.isArray(Router?.default) ? Router.default[0] : Router?.default;
+  req.log.info(`ROUTER_DEBUG: fallback model=${fallbackModel}`);
   return { model: fallbackModel, scenarioType: 'default' };
 };
 
@@ -296,6 +289,7 @@ export interface RouterFallbackConfig {
 
 export const router = async (req: any, _res: any, context: RouterContext) => {
   const { configService, event } = context;
+  req.log.info(`ROUTER_DEBUG: original model=${req.body.model}, thinking=${JSON.stringify(req.body.thinking)}, tools_count=${req.body.tools?.length || 0}`);
   // Normalize req.body.model if sent as an array
   if (req.body && Array.isArray(req.body.model)) {
     req.body.model = req.body.model[0];
@@ -380,9 +374,11 @@ export const router = async (req: any, _res: any, context: RouterContext) => {
     }
     req.body.model = model;
     // Extract provider from model format (provider,model) - only if not already set
-    if (!req.provider && model && model.includes(",")) {
+    req.log.info(`ROUTER_DEBUG: after routing model=${req.body.model}, provider=${req.provider}`);
+    if (model && model.includes(",")) {
       req.provider = model.split(",")[0];
     }
+    req.log.info(`ROUTER_DEBUG: provider extracted=${req.provider}`);
   } catch (error: any) {
     req.log.error(`Error in router middleware: ${error.message}`);
     const Router = configService.get("Router");

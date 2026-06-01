@@ -1036,23 +1036,32 @@ export class AnthropicTransformer implements Transformer {
                     const anthropicStopReason =
                       stopReasonMapping[choice.finish_reason] || "end_turn";
 
-                    stopReasonMessageDelta = {
-                      type: "message_delta",
-                      delta: {
+                    if (stopReasonMessageDelta) {
+                      // If stopReasonMessageDelta already exists (already has usage from previous chunk), only update delta
+                      stopReasonMessageDelta.delta = {
                         stop_reason: anthropicStopReason,
                         stop_sequence: null,
-                      },
-                      usage: {
-                        input_tokens:
-                          (chunk.usage?.prompt_tokens || 0) -
-                          (chunk.usage?.prompt_tokens_details?.cached_tokens ||
-                            0),
-                        output_tokens: chunk.usage?.completion_tokens || 0,
-                        cache_read_input_tokens:
-                          chunk.usage?.prompt_tokens_details?.cached_tokens ||
-                          0,
-                      },
-                    };
+                      };
+                    } else {
+                      // If no existing delta, create new one
+                      stopReasonMessageDelta = {
+                        type: "message_delta",
+                        delta: {
+                          stop_reason: anthropicStopReason,
+                          stop_sequence: null,
+                        },
+                        usage: {
+                          input_tokens:
+                            (chunk.usage?.prompt_tokens || 0) -
+                            (chunk.usage?.prompt_tokens_details?.cached_tokens ||
+                              0),
+                          output_tokens: chunk.usage?.completion_tokens || 0,
+                          cache_read_input_tokens:
+                            chunk.usage?.prompt_tokens_details?.cached_tokens ||
+                            0,
+                        },
+                      };
+                    }
                   }
 
                   break;

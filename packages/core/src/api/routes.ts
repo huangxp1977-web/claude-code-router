@@ -395,11 +395,13 @@ async function sendRequestToProvider(
   }
 
   // Auto-inject stream_options for OpenAI-compatible streaming requests
+  console.log("STREAM_OPTIONS_DEBUG: providerName=", provider.name, "provider=", provider ? {name: provider.name, url: provider.baseUrl} : null, "stream=", requestBody.stream);
   // This ensures usage data is returned in the final chunk
-  if (requestBody.stream && provider.api_base_url?.includes("/chat/completions")) {
+  if (requestBody.stream && provider.baseUrl?.includes("/chat/completions")) {
     requestBody.stream_options = {
       include_usage: true,
     };
+    console.log("STREAM_OPTIONS_DEBUG: stream=", requestBody.stream, "url=", provider?.baseUrl, "includes=", provider?.baseUrl?.includes("/chat/completions"));
   }
 
   // Send HTTP request
