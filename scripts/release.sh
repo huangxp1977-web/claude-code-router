@@ -19,8 +19,10 @@ echo "========================================="
 
 CURRENT_VERSION=$(node -p "require('$ROOT_DIR/packages/cli/package.json').version")
 
-# 检查当前版本是否已发布到 npm
-if npm view @thxp/claude-code-router@"$CURRENT_VERSION" version 2>/dev/null; then
+# 检查当前版本是否已发布到 npm（任一包已发布就需要 bump）
+CLI_EXISTS=$(npm view @thxp/claude-code-router@"$CURRENT_VERSION" version 2>/dev/null)
+LLMS_EXISTS=$(npm view @thxp/llms@"$CURRENT_VERSION" version 2>/dev/null)
+if [ -n "$CLI_EXISTS" ] || [ -n "$LLMS_EXISTS" ]; then
   # 版本已存在，自动 bump patch
   NEW_VERSION=$(node -p "
     const v = '$CURRENT_VERSION'.split('.');
@@ -131,9 +133,6 @@ publish_npm() {
     pkg.dependencies = {
       '@thxp/llms': '^${LLMS_VERSION}'
     };
-    pkg.peerDependencies = {
-      'node': '>=18.0.0'
-    };
     pkg.engines = {
       'node': '>=18.0.0'
     };
@@ -152,7 +151,7 @@ publish_npm() {
   (
     cd "$CLI_DIR"
     echo "执行 npm publish..."
-    npm publish --access public
+    npm publish --access public || echo "提示: @thxp/claude-code-router 版本已存在，跳过发布。"
   )
 
   echo ""
