@@ -227,19 +227,20 @@ const getUseModel = async (
     }
   }
   // The priority of websearch must be higher than thinking.
-  // Check if there's actual web search usage in the message history
-  const hasWebSearchUsage = Array.isArray(req.body.messages) && req.body.messages.some((message: MessageParam) => {
-    if (Array.isArray(message.content)) {
-      return message.content.some((block: ContentBlockParam) => {
-        // Check for tool_use blocks with WebSearch name (indicates actual search was initiated)
-        if (block.type === 'tool_use' && (block.name === 'WebSearch' || block.name === 'web_search')) {
-          return true;
-        }
-        return false;
+  // Only check the LAST assistant message for WebSearch tool_use (not entire history)
+  // to avoid false positives from old conversations that used WebSearch
+  const messages = Array.isArray(req.body.messages) ? req.body.messages : [];
+  let hasWebSearchUsage = false;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role === 'assistant') {
+      if (!Array.isArray(message.content)) break; // null/undefined content — stop, don't check older msgs
+      hasWebSearchUsage = message.content.some((block: ContentBlockParam) => {
+        return block.type === 'tool_use' && (block.name === 'WebSearch' || block.name === 'web_search');
       });
+      break;
     }
-    return false;
-  });
+  }
 
   if (hasWebSearchUsage && Router?.webSearch) {
     const model = getValidModel(Router.webSearch);
@@ -262,13 +263,11 @@ const getUseModel = async (
   // Handle default case with array support
   const defaultModel = getValidModel(Router?.default);
   if (defaultModel) {
-    req.log.info(`ROUTER_DEBUG: default route model=${defaultModel}`);
     return { model: defaultModel, scenarioType: 'default' };
   }
 
   // Fallback to original behavior if no valid model found
   const fallbackModel = Array.isArray(Router?.default) ? Router.default[0] : Router?.default;
-  req.log.info(`ROUTER_DEBUG: fallback model=${fallbackModel}`);
   return { model: fallbackModel, scenarioType: 'default' };
 };
 
@@ -289,7 +288,6 @@ export interface RouterFallbackConfig {
 
 export const router = async (req: any, _res: any, context: RouterContext) => {
   const { configService, event } = context;
-  req.log.info(`ROUTER_DEBUG: original model=${req.body.model}, thinking=${JSON.stringify(req.body.thinking)}, tools_count=${req.body.tools?.length || 0}`);
   // Normalize req.body.model if sent as an array
   if (req.body && Array.isArray(req.body.model)) {
     req.body.model = req.body.model[0];
@@ -374,11 +372,9 @@ export const router = async (req: any, _res: any, context: RouterContext) => {
     }
     req.body.model = model;
     // Extract provider from model format (provider,model) - only if not already set
-    req.log.info(`ROUTER_DEBUG: after routing model=${req.body.model}, provider=${req.provider}`);
     if (model && model.includes(",")) {
       req.provider = model.split(",")[0];
     }
-    req.log.info(`ROUTER_DEBUG: provider extracted=${req.provider}`);
   } catch (error: any) {
     req.log.error(`Error in router middleware: ${error.message}`);
     const Router = configService.get("Router");

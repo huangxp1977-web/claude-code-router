@@ -2,12 +2,52 @@
 set -e
 
 # 发布脚本
+# - 自动 bump patch 版本号（所有 package.json）
 # - Core 包作为 @thxp/llms npm 包发布
 # - CLI 包作为 @thxp/claude-code-router npm 包发布
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-VERSION=$(node -p "require('$ROOT_DIR/packages/cli/package.json').version")
+
+# ===========================
+# 版本号处理
+# ===========================
+echo ""
+echo "========================================="
+echo "Checking version..."
+echo "========================================="
+
+CURRENT_VERSION=$(node -p "require('$ROOT_DIR/packages/cli/package.json').version")
+
+# 检查当前版本是否已发布到 npm
+if npm view @thxp/claude-code-router@"$CURRENT_VERSION" version 2>/dev/null; then
+  # 版本已存在，自动 bump patch
+  NEW_VERSION=$(node -p "
+    const v = '$CURRENT_VERSION'.split('.');
+    v[2] = parseInt(v[2]) + 1;
+    v.join('.');
+  ")
+  echo "  v$CURRENT_VERSION 已发布，自动 bump -> v$NEW_VERSION"
+
+  # 更新所有 package.json
+  for pkg in "$ROOT_DIR/package.json" "$ROOT_DIR/packages/cli/package.json" "$ROOT_DIR/packages/core/package.json" "$ROOT_DIR/packages/server/package.json" "$ROOT_DIR/packages/shared/package.json" "$ROOT_DIR/packages/ui/package.json"; do
+    if [ -f "$pkg" ]; then
+      node -e "
+        const fs = require('fs');
+        const pkg = JSON.parse(fs.readFileSync('$pkg', 'utf8'));
+        pkg.version = '$NEW_VERSION';
+        fs.writeFileSync('$pkg', JSON.stringify(pkg, null, 2) + '\n');
+      "
+      echo "  ✅ $(basename $(dirname $pkg))/package.json -> $NEW_VERSION"
+    fi
+  done
+
+  VERSION="$NEW_VERSION"
+else
+  # 版本不存在，说明手动指定过，直接使用
+  echo "  v$CURRENT_VERSION 未发布，使用当前版本"
+  VERSION="$CURRENT_VERSION"
+fi
 
 echo "========================================="
 echo "发布 Claude Code Router v${VERSION}"
