@@ -227,22 +227,13 @@ const getUseModel = async (
     }
   }
   // The priority of websearch must be higher than thinking.
-  // Only check the LAST assistant message for WebSearch tool_use (not entire history)
-  // to avoid false positives from old conversations that used WebSearch
-  const messages = Array.isArray(req.body.messages) ? req.body.messages : [];
-  let hasWebSearchUsage = false;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (message.role === 'assistant') {
-      if (!Array.isArray(message.content)) break; // null/undefined content — stop, don't check older msgs
-      hasWebSearchUsage = message.content.some((block: ContentBlockParam) => {
-        return block.type === 'tool_use' && (block.name === 'WebSearch' || block.name === 'web_search');
-      });
-      break;
-    }
-  }
+  // Check if tools array has a web_search tool definition (CC initiating a search)
+  const tools = Array.isArray(req.body.tools) ? req.body.tools : [];
+  const hasWebSearchToolDef = tools.some((tool: any) => {
+    return tool.type && tool.type.includes('web_search');
+  });
 
-  if (hasWebSearchUsage && Router?.webSearch) {
+  if (hasWebSearchToolDef && Router?.webSearch) {
     const model = getValidModel(Router.webSearch);
     if (model) {
       return { model, scenarioType: 'webSearch' };

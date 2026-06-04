@@ -1,6 +1,6 @@
 {
   "name": "@thxp/claude-code-router-workspace",
-  "version": "3.2.10",
+  "version": "3.2.13",
   "description": "Use Claude Code without an Anthropics account and route it to another LLM provider",
   "scripts": {
     "build": "pnpm build:shared && pnpm build:core && pnpm build:server && pnpm build:cli && pnpm build:ui",
@@ -10,7 +10,7 @@
     "build:server": "pnpm --filter @thxp/server build",
     "build:ui": "pnpm --filter @thxp/ui build",
     "build:docs": "pnpm --filter claude-code-router-docs build",
-    "release": "pnpm build && bash scripts/release.sh",
+    "release": "bash scripts/release.sh",
     "release:npm": "bash scripts/release.sh",
     "dev:cli": "pnpm --filter @thxp/claude-code-router dev",
     "dev:server": "pnpm --filter @thxp/server dev",

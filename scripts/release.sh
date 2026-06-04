@@ -56,6 +56,17 @@ echo "发布 Claude Code Router v${VERSION}"
 echo "========================================="
 
 # ===========================
+# 用新版本号重新构建（确保 cli.js 嵌入正确版本）
+# ===========================
+echo ""
+echo "========================================="
+echo "Rebuilding with v${VERSION}..."
+echo "========================================="
+cd "$ROOT_DIR"
+pnpm build
+echo "✅ Rebuild complete"
+
+# ===========================
 # 发布 Core npm 包 (@thxp/llms)
 # ===========================
 publish_core_npm() {
