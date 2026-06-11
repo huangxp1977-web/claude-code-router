@@ -20,8 +20,8 @@ echo "========================================="
 CURRENT_VERSION=$(node -p "require('$ROOT_DIR/packages/cli/package.json').version")
 
 # 检查当前版本是否已发布到 npm（任一包已发布就需要 bump）
-CLI_EXISTS=$(npm view @thxp/claude-code-router@"$CURRENT_VERSION" version 2>/dev/null)
-LLMS_EXISTS=$(npm view @thxp/llms@"$CURRENT_VERSION" version 2>/dev/null)
+CLI_EXISTS=$(npm view @thxp/claude-code-router@"$CURRENT_VERSION" version 2>/dev/null || true)
+LLMS_EXISTS=$(npm view @thxp/llms@"$CURRENT_VERSION" version 2>/dev/null || true)
 if [ -n "$CLI_EXISTS" ] || [ -n "$LLMS_EXISTS" ]; then
   # 版本已存在，自动 bump patch
   NEW_VERSION=$(node -p "

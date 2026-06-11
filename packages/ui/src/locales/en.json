@@ -117,7 +117,7 @@
   "router": {
     "title": "Router",
     "default": "Default",
-    "background": "Background (only Haiku)",
+    "background": "Background",
     "think": "Think",
     "webSearch": "Web Search",
     "image": "Image",

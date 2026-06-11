@@ -537,11 +537,18 @@ async function formatResponse(response: any, reply: FastifyReply, body: any) {
     let rawText: string;
 
     if (contentEncoding === "gzip") {
-      // Decompress gzip response
-      const { gunzipSync } = await import("zlib");
       const buffer = await response.arrayBuffer();
-      const decompressed = gunzipSync(Buffer.from(buffer));
-      rawText = decompressed.toString("utf-8");
+      try {
+        // Decompress gzip response
+        const { gunzipSync } = await import("zlib");
+        const decompressed = gunzipSync(Buffer.from(buffer));
+        rawText = decompressed.toString("utf-8");
+      } catch (decompressError: any) {
+        // Fallback: if gzip decompression fails, try reading as plain text
+        // This handles cases where Content-Encoding header is incorrect
+        console.warn(`[CCR] Gzip decompression failed (${decompressError.message}), falling back to raw text`);
+        rawText = Buffer.from(buffer).toString("utf-8");
+      }
     } else {
       // 防御性读取响应文本，避免非 JSON 文本导致的 SyntaxError 崩溃
       rawText = await response.text();
