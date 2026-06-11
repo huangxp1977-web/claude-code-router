@@ -1,6 +1,6 @@
 {
   "name": "@thxp/server",
-  "version": "3.2.13",
+  "version": "3.2.14",
   "description": "Server for Claude Code Router",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
