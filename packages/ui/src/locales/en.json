@@ -111,7 +111,11 @@
     "api_key_required": "API Key is required",
     "name_required": "Name is required",
     "name_duplicate": "A provider with this name already exists",
-    "search": "Search providers..."
+    "search": "Search providers...",
+    "ping_test": "Ping",
+    "ping_testing": "Testing...",
+    "test_failed": "Test failed",
+    "network_error": "Network error"
 
   },
   "router": {

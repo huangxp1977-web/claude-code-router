@@ -115,9 +115,11 @@ export function Providers() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const comboInputRef = useRef<HTMLInputElement>(null);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
-  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+  const [fetchedModels, setFetchedModels] = useState<Array<string | { id: string; isFree?: boolean }>>([]);
   const [modelSelectOpen, setModelSelectOpen] = useState(false);
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
+  const [testingModel, setTestingModel] = useState<string | null>(null);
+  const [resultLatencies, setResultLatencies] = useState<Record<string, number>>({});
   // Drag-and-drop state for model badges
   const [draggedModelIndex, setDraggedModelIndex] = useState<number | null>(null);
   const [dragOverModelIndex, setDragOverModelIndex] = useState<number | null>(null);
@@ -670,7 +672,9 @@ export function Providers() {
         setToast({ message: `${t("providers.fetch_models_failed")}: ${result.error}`, type: 'error' });
         return;
       }
-      setFetchedModels(result.models || []);
+      // Handle both string array and object array formats
+      const models = result.models || [];
+      setFetchedModels(models);
       setSelectedModels(new Set(editingProvider.models || []));
       if (editingProviderIndex !== null) {
         setHasFetchedModels(prev => ({ ...prev, [editingProviderIndex]: true }));
@@ -692,6 +696,59 @@ export function Providers() {
     }
     setEditingProviderData({ ...editingProviderData, models: newModels });
     setModelSelectOpen(false);
+  };
+
+  // Ping test function
+  const handlePingTest = async (modelId: string) => {
+    if (!editingProvider) return;
+    setTestingModel(modelId);
+    try {
+      // Determine transformer name for this model
+      const rawTransformer = editingProvider.transformer?.use?.[0];
+      const transformerName = typeof rawTransformer === "string"
+        ? rawTransformer
+        : Array.isArray(rawTransformer) && typeof rawTransformer[0] === "string"
+        ? rawTransformer[0]
+        : undefined;
+
+      const response = await fetch('/api/providers/ping-test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          api_base_url: editingProvider.api_base_url,
+          api_key: editingProvider.api_key,
+          model: modelId,
+          transformer: transformerName,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.latency > 0) {
+        setResultLatencies(prev => ({
+          ...prev,
+          [modelId]: result.latency,
+        }));
+        setToast({
+          message: `${modelId}: ${result.latency}ms`,
+          type: 'success',
+        });
+      } else {
+        setToast({
+          message: `${modelId}: ${result.error || t('providers.test_failed')}`,
+          type: 'error',
+        });
+      }
+    } catch (err: any) {
+      setToast({
+        message: `${modelId}: ${t('providers.network_error')}`,
+        type: 'error',
+      });
+    } finally {
+      setTestingModel(null);
+    }
   };
 
   const handleReorderModels = (fromIndex: number, toIndex: number) => {
@@ -893,31 +950,56 @@ export function Providers() {
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                         <Command>
                           <CommandInput placeholder={t("providers.models_placeholder")} />
-                          <CommandList className="max-h-64">
+                          <CommandList className="max-h-64 overflow-y-auto">
                             <CommandEmpty>{t("providers.no_models_fetched")}</CommandEmpty>
                             <CommandGroup>
-                              {fetchedModels.map((model) => (
-                                <CommandItem
-                                  key={model}
-                                  value={model}
-                                  onSelect={() => {
-                                    setSelectedModels(prev => {
-                                      const next = new Set(prev);
-                                      if (next.has(model)) next.delete(model);
-                                      else next.add(model);
-                                      return next;
-                                    });
-                                  }}
-                                  className="flex items-center gap-2"
-                                >
-                                  <Checkbox
-                                    checked={selectedModels.has(model)}
-                                    onCheckedChange={() => {}}
-                                    className="pointer-events-none"
-                                  />
-                                  <span>{model}</span>
-                                </CommandItem>
-                              ))}
+                              {fetchedModels.map((model) => {
+                                // Handle both string format and object format with isFree property
+                                const modelId = typeof model === 'string' ? model : model.id;
+                                const isFree = typeof model === 'object' && model.isFree === true;
+                                return (
+                                  <CommandItem
+                                    key={modelId}
+                                    value={modelId}
+                                    onSelect={() => {
+                                      setSelectedModels(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(modelId)) next.delete(modelId);
+                                        else next.add(modelId);
+                                        return next;
+                                      });
+                                    }}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Checkbox
+                                      checked={selectedModels.has(modelId)}
+                                      onCheckedChange={() => {}}
+                                      className="pointer-events-none"
+                                    />
+                                    <span className={isFree ? "font-medium text-green-600" : ""}>{modelId}</span>
+                                    {isFree && (
+                                      <span className="ml-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">Free</span>
+                                    )}
+                                    {/* Speed test button */}
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="ml-auto h-6 px-2 text-xs font-medium border-blue-300 text-blue-600 hover:bg-blue-50"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePingTest(modelId);
+                                      }}
+                                      disabled={testingModel === modelId}
+                                    >
+                                      {testingModel === modelId
+                                        ? t('providers.ping_testing')
+                                        : resultLatencies[modelId]
+                                          ? `${resultLatencies[modelId]}ms`
+                                          : t('providers.ping_test')}
+                                    </Button>
+                                  </CommandItem>
+                                );
+                              })}
                             </CommandGroup>
                           </CommandList>
                           <div className="border-t p-2">

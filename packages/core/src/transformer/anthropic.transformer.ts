@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from "uuid";
 import { getThinkLevel } from "@/utils/thinking";
 import { createApiError } from "@/api/middleware";
 import { formatBase64 } from "@/utils/image";
+import { recordModelUsage } from "@/utils/dailyUsage";
 
 export class AnthropicTransformer implements Transformer {
   name = "Anthropic";
@@ -621,6 +622,15 @@ export class AnthropicTransformer implements Transformer {
 
                 const choice = chunk.choices?.[0];
                 if (chunk.usage) {
+                  // Record real usage at transformer level (before format conversion)
+                  // This is the most reliable point to capture OpenAI provider usage data
+                  const tokens = (chunk.usage.prompt_tokens || 0) + (chunk.usage.completion_tokens || 0);
+                  if (tokens > 0 && context.req?.provider && context.req?.body?.model) {
+                    try {
+                      recordModelUsage(context.req.provider, context.req.body.model, tokens);
+                      context.req._usageRecorded = true; // mark to prevent double-count in onSend
+                    } catch {}
+                  }
                   if (!stopReasonMessageDelta) {
                     stopReasonMessageDelta = {
                       type: "message_delta",

@@ -113,7 +113,46 @@ export const createServer = async (config: any): Promise<any> => {
     return { success: true, message: "Config saved successfully" };
   });
 
-  // Fetch available models from a provider's API
+  // Determine auth headers based on URL and transformer
+  function getAuthHeaders(baseUrl: string, apiKey: string, transformerName?: string): Record<string, string> {
+    if (baseUrl.includes("generativelanguage.googleapis.com")) {
+      return { "x-goog-api-key": apiKey };
+    }
+    if (transformerName === "Anthropic" || baseUrl.includes("anthropic")) {
+      return {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      };
+    }
+    return { Authorization: `Bearer ${apiKey}` };
+  }
+
+  // Validate URL to prevent SSRF attacks
+  function validatePingUrl(url: string): { valid: boolean; reason?: string } {
+      try {
+        const parsed = new URL(url);
+        const hostname = parsed.hostname.toLowerCase();
+
+        // Block localhost variants
+        if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0" || hostname === "::1") {
+          return { valid: false, reason: "localhost is not allowed" };
+        }
+
+        // Block private IP ranges
+        if (/^10\./.test(hostname) ||
+            /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+            /^192\.168\./.test(hostname) ||
+            /^169\.254\./.test(hostname)) {
+          return { valid: false, reason: "private IP is not allowed" };
+        }
+
+        return { valid: true };
+      } catch {
+        return { valid: false, reason: "invalid URL" };
+      }
+    }
+
+      // Fetch available models from a provider's API
   app.post("/api/providers/fetch-models", async (req: any, reply: any) => {
     const { api_base_url, api_key, transformer } = req.body || {};
 
@@ -145,46 +184,47 @@ export const createServer = async (config: any): Promise<any> => {
       return url + "/models";
     }
 
-    // Determine auth headers based on URL and transformer
-    function getAuthHeaders(baseUrl: string, apiKey: string, transformerName?: string): Record<string, string> {
-      if (baseUrl.includes("generativelanguage.googleapis.com")) {
-        return { "x-goog-api-key": apiKey };
-      }
-      if (transformerName === "Anthropic" || baseUrl.includes("anthropic")) {
-        return {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        };
-      }
-      return { Authorization: `Bearer ${apiKey}` };
-    }
-
     // Parse model list from various response formats
-    function extractModels(data: any): string[] {
-      const models: string[] = [];
+    // Returns array of { id, isFree? } objects for providers that support pricing info
+    function extractModels(data: any, apiBaseUrl: string): Array<{ id: string; isFree?: boolean }> {
+      // OpenRouter format: includes pricing field
+      if (apiBaseUrl.includes("openrouter.ai")) {
+        if (Array.isArray(data?.data)) {
+          return data.data.map(item => ({
+            id: item.id,
+            isFree: item.pricing?.prompt === "0" && item.pricing?.completion === "0",
+          }));
+        }
+      }
 
       // OpenAI format: { data: [{ id: "model-name" }] }
       if (Array.isArray(data?.data)) {
+        const models: Array<{ id: string; isFree?: boolean }> = [];
         for (const item of data.data) {
-          if (item.id) models.push(item.id);
+          if (item.id) models.push({ id: item.id });
         }
+        return models;
       }
       // Gemini format: { models: [{ name: "models/model-name" }] }
-      else if (Array.isArray(data?.models)) {
+      if (Array.isArray(data?.models)) {
+        const models: Array<{ id: string; isFree?: boolean }> = [];
         for (const item of data.models) {
           const name = item.name || item.id || "";
-          models.push(name.replace(/^models\//, ""));
+          models.push({ id: name.replace(/^models\//, "") });
         }
+        return models;
       }
       // Direct array: [{ id: "xxx" }]
-      else if (Array.isArray(data)) {
+      if (Array.isArray(data)) {
+        const models: Array<{ id: string; isFree?: boolean }> = [];
         for (const item of data) {
-          if (typeof item === "string") models.push(item);
-          else if (item.id) models.push(item.id);
+          if (typeof item === "string") models.push({ id: item });
+          else if (item.id) models.push({ id: item.id });
         }
+        return models;
       }
 
-      return [...new Set(models)].sort();
+      return [];
     }
 
     try {
@@ -223,21 +263,12 @@ export const createServer = async (config: any): Promise<any> => {
               const retryResp = await fetch(openaiUrl, fetchOptions);
               if (retryResp.ok) {
                 const data = await retryResp.json();
-                const models = extractModels(data);
+                const models = extractModels(data, openaiUrl);
                 if (models.length) return { models };
               }
             }
           } catch {}
         }
-        // Fallback: return the provider's currently configured models
-        try {
-          const config = await readConfigFile();
-          const providers = config.Providers || config.providers || [];
-          const matched = providers.find((p: any) => p.api_base_url === api_base_url);
-          if (matched?.models?.length) {
-            return { models: [...matched.models].sort(), fallback: true };
-          }
-        } catch {}
         const text = await response.text().catch(() => "");
         return reply.status(response.status).send({
           error: `Provider returned ${response.status}: ${text.slice(0, 200)}`,
@@ -245,7 +276,7 @@ export const createServer = async (config: any): Promise<any> => {
       }
 
       const data = await response.json();
-      const models = extractModels(data);
+      const models = extractModels(data, modelsUrl);
 
       return { models };
     } catch (err: any) {
@@ -253,6 +284,79 @@ export const createServer = async (config: any): Promise<any> => {
         ? "Request timed out after 15s"
         : err?.message || "Unknown error";
       return reply.status(502).send({ error: message });
+    }
+  });
+
+  // Ping test for model speed
+  app.post("/api/providers/ping-test", async (req: any, reply: any) => {
+    const { api_base_url, api_key, model, transformer } = req.body || {};
+
+    if (!api_base_url || !api_key || !model) {
+      return reply.status(400).send({ error: "api_base_url, api_key and model are required" });
+    }
+
+    // SSRF protection: block private/internal URLs
+    const urlCheck = validatePingUrl(api_base_url);
+    if (!urlCheck.valid) {
+      return reply.status(400).send({ error: urlCheck.reason });
+    }
+
+    const start = Date.now();
+    try {
+      const headers = getAuthHeaders(api_base_url, api_key, transformer);
+      const isAnthropic = transformer === "Anthropic" || api_base_url.includes("anthropic") || api_base_url.includes("freemodel") || api_base_url.includes("agentrouter");
+
+      // Build request body based on endpoint type
+      let body: string;
+      if (isAnthropic) {
+        body = JSON.stringify({
+          model,
+          max_tokens: 10,
+          messages: [{ role: "user", content: "hi" }],
+        });
+      } else {
+        body = JSON.stringify({
+          model,
+          messages: [{ role: "user", content: "hi" }],
+          max_tokens: 10,
+        });
+      }
+
+      // Gemini-specific handling
+      if (api_base_url.includes("generativelanguage.googleapis.com")) {
+        const geminiUrl = `${api_base_url.replace(/\/+$/, "")}/${model}:streamGenerateContent?key=${api_key}`;
+        const geminiResp = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: "hi" }] }] }),
+          signal: AbortSignal.timeout(15000),
+        });
+        const latency = Date.now() - start;
+        return { latency, status: geminiResp.status };
+      }
+
+      const response = await fetch(api_base_url, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body,
+        signal: AbortSignal.timeout(15000),
+      });
+
+      const latency = Date.now() - start;
+      if (response.ok) {
+        return { latency, status: response.status };
+      } else {
+        const text = await response.text().catch(() => "");
+        return reply.status(response.status).send({
+          error: `Provider returned ${response.status}: ${text.slice(0, 200)}`,
+          latency: -1,
+        });
+      }
+    } catch (err: any) {
+      const message = err?.name === "TimeoutError"
+        ? "Request timed out after 15s"
+        : err?.message || "Unknown error";
+      return reply.status(502).send({ error: message, latency: -1 });
     }
   });
 

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api';
+import { Router as RouterIcon } from 'lucide-react';
 
 export function Login() {
   const { t } = useTranslation();
@@ -103,7 +104,12 @@ export function Login() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 shadow-md">
+              <RouterIcon className="h-6 w-6 text-white" />
+            </div>
+            <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
+          </div>
           <CardDescription>
             {t('login.description')}
           </CardDescription>

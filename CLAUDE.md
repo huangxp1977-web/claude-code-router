@@ -45,32 +45,40 @@ pnpm release:docker # Release to docker only
 
 ## Core Architecture
 
-### 1. Routing System (packages/server/src/utils/router.ts)
+### 1. Routing System (packages/core/src/utils/router.ts)
 
 The routing logic determines which model a request should be sent to:
 
 - **Default routing**: Uses `Router.default` configuration
 - **Project-level routing**: Checks `~/.claude/projects/<project-id>/claude-code-router.json`
 - **Custom routing**: Loads custom JavaScript router function via `CUSTOM_ROUTER_PATH`
-- **Built-in scenario routing**:
-  - `background`: Background tasks (typically lightweight models)
-  - `think`: Thinking-intensive tasks (Plan Mode)
-  - `webSearch`: Web search tasks
+- **Built-in scenario routing** (priority: background > webSearch > think > default):
+  - `background`: Background tasks / lightweight classifier requests (e.g., Claude Code's haiku safety classifier)
+  - `webSearch`: Web search tasks (detected by `tool_use` blocks with WebSearch name in message history)
+  - `think`: Thinking-intensive tasks (detected by `thinking.type === 'enabled'`)
   - `image`: Image-related tasks
 
 Token calculation uses `tiktoken` (cl100k_base) to estimate request size.
+
+**Fallback mechanism**: When a provider request fails (4xx/5xx, network error), CCR automatically rotates to the next model in the scenario's fallback list. Models are marked as failed for 15 minutes after an error. For `default` scenario, the model name is automatically replaced with the default provider's model when the incoming model is not supported.
 
 ### 2. Transformer System
 
 The project uses the `@thxp/llms` package (external dependency) to handle request/response transformations. Transformers adapt to different provider API differences:
 
-- Built-in transformers: `anthropic`, `deepseek`, `gemini`, `openrouter`, `groq`, `maxtoken`, `tooluse`, `reasoning`, `enhancetool`, etc.
+- Built-in transformers: `anthropic`, `deepseek`, `gemini`, `openrouter`, `groq`, `maxtoken`, `tooluse`, `reasoning`, `enhancetool`, `openai`, `openai.responses`, `vercel`, `vertex-claude`, `vertex-gemini`, `cerebras`, `stream-to-sync`, `customparams`, `cleancache`, `forcereasoning`, `sampling`, `maxcompletiontokens`, `toolargs`
 - Custom transformers: Load external plugins via `transformers` array in `config.json`
 
 Transformer configuration supports:
 - Global application (provider level)
 - Model-specific application
 - Option passing (e.g., `max_tokens` parameter for `maxtoken`)
+
+**Provider configuration guidelines**:
+- **Anthropic-native providers** (e.g., xiaomimimo): Use `Anthropic` transformer, `api_base_url` points to `/v1/messages` endpoint
+- **OpenAI-compatible providers** (e.g., Volcengine, dashscope, Agnes): Use `enhancetool` transformer, `api_base_url` must be the **full endpoint path** (e.g., `https://xxx.com/v1/chat/completions`). Do NOT add `OpenAI` transformer as it will duplicate the endpoint path
+
+**stream_options auto-injection**: For all streaming requests to OpenAI-compatible providers (`/chat/completions` endpoints), `stream_options: { include_usage: true }` is automatically injected before sending the request. This ensures usage data is returned in the final chunk for `recordModelUsage` tracking.
 
 ### 3. Agent System (packages/server/src/agents/)
 
@@ -96,7 +104,13 @@ The server uses custom Transform streams to handle Server-Sent Events:
 - `SSESerializerTransform`: Serializes event objects into SSE text stream
 - `rewriteStream`: Intercepts and modifies stream data (for agent tool calls)
 
-### 5. Configuration Management
+### 5. Response Handling (packages/core/src/api/routes.ts)
+
+**GZIP decompression**: Providers may return gzip-compressed responses. CCR detects `Content-Encoding: gzip` headers and decompresses automatically. If decompression fails (e.g., incorrect header), CCR falls back to reading the raw response text with a warning log.
+
+**Header passthrough**: CCR preserves the original Claude Code client headers (User-Agent, anthropic-version, x-stainless-*, etc.) when forwarding requests to downstream providers. Only authentication headers (Authorization, x-api-key) and hop-by-hop headers (host, content-length) are overridden. This ensures downstream providers see the same client identity as the original request.
+
+### 6. Configuration Management
 
 Configuration file location: `~/.claude-code-router/config.json`
 
@@ -110,7 +124,7 @@ Configuration validation:
 - If `Providers` are configured, both `HOST` and `APIKEY` must be set
 - Otherwise listens on `0.0.0.0` without authentication
 
-### 6. Logging System
+### 7. Logging System
 
 Two separate logging systems:
 

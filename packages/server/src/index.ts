@@ -411,7 +411,7 @@ async function getServer(options: RunOptions = {}) {
                     const message = JSON.parse(trimmed.slice(5).trim());
                     if (message.type === "message_delta" && message.usage) {
                       sessionUsageCache.put(req.sessionId, message.usage);
-                      if (req.provider && req.body?.model) {
+                      if (req.provider && req.body?.model && !(req as any)._usageRecorded) {
                         const tokens = (message.usage.input_tokens || 0) + (message.usage.output_tokens || 0);
                         if (tokens > 0) recordModelUsage(req.provider, req.body.model, tokens);
                       }

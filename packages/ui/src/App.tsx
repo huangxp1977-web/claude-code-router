@@ -10,7 +10,7 @@ import { LogViewer } from "@/components/LogViewer";
 import { Button } from "@/components/ui/button";
 import { useConfig } from "@/components/ConfigProvider";
 import { api } from "@/lib/api";
-import { Settings, Languages, Save, RefreshCw, FileJson, CircleArrowUp, FileText, FileCog } from "lucide-react";
+import { Settings, Languages, Save, RefreshCw, FileJson, CircleArrowUp, FileText, FileCog, Router as RouterIcon } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -248,7 +248,12 @@ function App() {
   if (isCheckingAuth) {
     return (
       <div className="h-screen bg-gray-50 font-sans flex items-center justify-center">
-        <div className="text-gray-500">Loading application...</div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 shadow-md">
+            <RouterIcon className="h-6 w-6 text-white" />
+          </div>
+          <div className="text-gray-500">Loading application...</div>
+        </div>
       </div>
     );
   }
@@ -256,7 +261,12 @@ function App() {
   if (error) {
     return (
       <div className="h-screen bg-gray-50 font-sans flex items-center justify-center">
-        <div className="text-red-500">Error: {error.message}</div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 shadow-md">
+            <RouterIcon className="h-6 w-6 text-white" />
+          </div>
+          <div className="text-red-500">Error: {error.message}</div>
+        </div>
       </div>
     );
   }
@@ -265,7 +275,12 @@ function App() {
   if (!config) {
     return (
       <div className="h-screen bg-gray-50 font-sans flex items-center justify-center">
-        <div className="text-gray-500">Loading configuration...</div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 shadow-md">
+            <RouterIcon className="h-6 w-6 text-white" />
+          </div>
+          <div className="text-gray-500">Loading configuration...</div>
+        </div>
       </div>
     );
   }
@@ -274,7 +289,12 @@ function App() {
     <TooltipProvider>
       <div className="h-screen bg-gray-50 font-sans">
       <header className="flex h-16 items-center justify-between border-b bg-white px-6">
-        <h1 className="text-xl font-semibold text-gray-800">{t('app.title')}</h1>
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 shadow-sm">
+            <RouterIcon className="h-5 w-5 text-white" />
+          </div>
+          <h1 className="text-xl font-semibold text-gray-800">{t('app.title')}</h1>
+        </div>
         <div className="flex items-center gap-2">
           <Tooltip>
             <TooltipTrigger asChild>

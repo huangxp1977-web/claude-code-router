@@ -111,7 +111,11 @@
     "api_key_required": "API 密钥为必填项",
     "name_required": "名称为必填项",
     "name_duplicate": "已存在同名供应商",
-    "search": "搜索供应商..."
+    "search": "搜索供应商...",
+    "ping_test": "测试",
+    "ping_testing": "测试中...",
+    "test_failed": "测试失败",
+    "network_error": "网络错误"
 
   },
   "router": {
