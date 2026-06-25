@@ -131,6 +131,28 @@ const getUseModel = async (
   const providers = configService.get<any[]>("providers") || [];
   const Router = projectSpecificRouter || configService.get("Router");
 
+  // Log warning for bare model names in Router config (missing "Provider," prefix)
+  const warnBareModelNames = (key: string, value: any) => {
+    if (typeof value === "string" && !value.includes(",")) {
+      req.log?.warn(
+        `Router.${key} uses bare model name "${value}" without provider prefix. ` +
+          `Consider using "ProviderName,${value}" format for deterministic routing.`
+      );
+    }
+    if (Array.isArray(value)) {
+      value.forEach((v) => {
+        if (typeof v === "string" && !v.includes(",")) {
+          req.log?.warn(`Router.${key} contains bare model name "${v}" without provider prefix.`);
+        }
+      });
+    }
+  };
+  if (Router) {
+    ["default", "background", "think", "webSearch", "image"].forEach((key) => {
+      if (Router[key]) warnBareModelNames(key, Router[key]);
+    });
+  }
+
   if (req.body.model.includes(",")) {
     const [provider, model] = req.body.model.split(",");
     const finalProvider = providers.find(
@@ -165,7 +187,7 @@ const getUseModel = async (
         [pName, mName] = modelConfig.split(",");
       } else {
         mName = modelConfig;
-        const found = providers.find((p: any) => p.models.includes(mName));
+        const found = providers.find((p: any) => p.models.includes(mName) && p.api_key && p.api_key.trim() !== "" && p.api_base_url && p.api_base_url.trim() !== "");
         if (found) pName = found.name;
       }
       if (pName && mName) {
@@ -187,7 +209,7 @@ const getUseModel = async (
               return model;
             }
           } else {
-            const provider = providers.find(p => p.models.includes(model));
+            const provider = providers.find(p => p.models.includes(model) && p.api_key && p.api_key.trim() !== "" && p.api_base_url && p.api_base_url.trim() !== "");
             if (provider && !isModelFailed(getModelSpec(provider.name, model)) && !isModelCapped(provider, model)) {
               return model;
             }

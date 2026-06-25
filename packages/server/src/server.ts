@@ -187,44 +187,58 @@ export const createServer = async (config: any): Promise<any> => {
     // Parse model list from various response formats
     // Returns array of { id, isFree? } objects for providers that support pricing info
     function extractModels(data: any, apiBaseUrl: string): Array<{ id: string; isFree?: boolean }> {
+      let models: Array<{ id: string; isFree?: boolean }> = [];
+
       // OpenRouter format: includes pricing field
       if (apiBaseUrl.includes("openrouter.ai")) {
         if (Array.isArray(data?.data)) {
-          return data.data.map(item => ({
+          models = data.data.map(item => ({
             id: item.id,
             isFree: item.pricing?.prompt === "0" && item.pricing?.completion === "0",
           }));
         }
       }
-
       // OpenAI format: { data: [{ id: "model-name" }] }
-      if (Array.isArray(data?.data)) {
-        const models: Array<{ id: string; isFree?: boolean }> = [];
+      else if (Array.isArray(data?.data)) {
         for (const item of data.data) {
           if (item.id) models.push({ id: item.id });
         }
-        return models;
       }
       // Gemini format: { models: [{ name: "models/model-name" }] }
-      if (Array.isArray(data?.models)) {
-        const models: Array<{ id: string; isFree?: boolean }> = [];
+      else if (Array.isArray(data?.models)) {
         for (const item of data.models) {
           const name = item.name || item.id || "";
           models.push({ id: name.replace(/^models\//, "") });
         }
-        return models;
       }
       // Direct array: [{ id: "xxx" }]
-      if (Array.isArray(data)) {
-        const models: Array<{ id: string; isFree?: boolean }> = [];
+      else if (Array.isArray(data)) {
         for (const item of data) {
           if (typeof item === "string") models.push({ id: item });
           else if (item.id) models.push({ id: item.id });
         }
-        return models;
       }
 
-      return [];
+      // 过滤非对话模型（图片生成、语音、向量等）
+      const isNonChatModel = (id: string): boolean => {
+        const lowerId = id.toLowerCase();
+        return (
+          // 通用黑名单：绝不可能用于普通对话的特定模型类型 (100%安全)
+          lowerId.includes("dall-e") ||
+          lowerId.includes("whisper") ||
+          lowerId.includes("embedding") ||
+          lowerId.includes("tts-") ||
+          // 特定供应商累加黑名单：防止全局误杀
+          (lowerId.includes("sensenova") && lowerId.includes("-u1")) ||  // 商汤 U1 生图系列
+          (lowerId.includes("agnes") && (lowerId.includes("-image") || lowerId.includes("-video"))) || // Agnes 生图生视频系列
+          // 全局纯生图引擎/平台
+          lowerId.includes("stable-diffusion") ||
+          lowerId.includes("flux") ||
+          lowerId.includes("midjourney")
+        );
+      };
+
+      return models.filter(m => !isNonChatModel(m.id));
     }
 
     try {
@@ -270,12 +284,13 @@ export const createServer = async (config: any): Promise<any> => {
           } catch {}
         }
         const text = await response.text().catch(() => "");
-        return reply.status(response.status).send({
-          error: `Provider returned ${response.status}: ${text.slice(0, 200)}`,
-        });
-      }
+                const status = response.status === 401 ? 400 : response.status;
+                return reply.status(status).send({
+                  error: `Provider returned ${response.status}: ${text.slice(0, 200)}`,
+                });
+              }
 
-      const data = await response.json();
+              const data = await response.json();
       const models = extractModels(data, modelsUrl);
 
       return { models };
@@ -289,76 +304,108 @@ export const createServer = async (config: any): Promise<any> => {
 
   // Ping test for model speed
   app.post("/api/providers/ping-test", async (req: any, reply: any) => {
-    const { api_base_url, api_key, model, transformer } = req.body || {};
+      const { api_base_url, api_key, model, transformer } = req.body || {};
 
-    if (!api_base_url || !api_key || !model) {
-      return reply.status(400).send({ error: "api_base_url, api_key and model are required" });
-    }
-
-    // SSRF protection: block private/internal URLs
-    const urlCheck = validatePingUrl(api_base_url);
-    if (!urlCheck.valid) {
-      return reply.status(400).send({ error: urlCheck.reason });
-    }
-
-    const start = Date.now();
-    try {
-      const headers = getAuthHeaders(api_base_url, api_key, transformer);
-      const isAnthropic = transformer === "Anthropic" || api_base_url.includes("anthropic") || api_base_url.includes("freemodel") || api_base_url.includes("agentrouter");
-
-      // Build request body based on endpoint type
-      let body: string;
-      if (isAnthropic) {
-        body = JSON.stringify({
-          model,
-          max_tokens: 10,
-          messages: [{ role: "user", content: "hi" }],
-        });
-      } else {
-        body = JSON.stringify({
-          model,
-          messages: [{ role: "user", content: "hi" }],
-          max_tokens: 10,
-        });
+      if (!api_base_url || !api_key || !model) {
+        return reply.status(400).send({ error: "api_base_url, api_key and model are required" });
       }
 
-      // Gemini-specific handling
-      if (api_base_url.includes("generativelanguage.googleapis.com")) {
-        const geminiUrl = `${api_base_url.replace(/\/+$/, "")}/${model}:streamGenerateContent?key=${api_key}`;
-        const geminiResp = await fetch(geminiUrl, {
+      // Resolve environment variables in api_key and api_base_url
+      const resolveEnv = (val: string): string => {
+        if (typeof val !== "string") return val;
+        return val.replace(/\$\{([^}]+)\}|\$([A-Z_][A-Z0-9_]*)/g, (match, braced, unbraced) => {
+          const varName = braced || unbraced;
+          return process.env[varName] || match;
+        });
+      };
+      const resolvedApiKey = resolveEnv(api_key);
+      const resolvedApiBaseUrl = resolveEnv(api_base_url);
+
+      // SSRF protection: block private/internal URLs
+      const urlCheck = validatePingUrl(resolvedApiBaseUrl);
+      if (!urlCheck.valid) {
+        return reply.status(400).send({ error: urlCheck.reason });
+      }
+
+      // Setup proxy dispatcher if proxy env vars exist
+      const httpsProxy =
+        process.env.HTTPS_PROXY || process.env.https_proxy ||
+        process.env.HTTP_PROXY || process.env.http_proxy;
+      let dispatcher: any = undefined;
+      if (httpsProxy) {
+        const { ProxyAgent } = await import("undici");
+        dispatcher = new ProxyAgent(new URL(httpsProxy).toString());
+      }
+
+      const start = Date.now();
+      try {
+        const headers = getAuthHeaders(resolvedApiBaseUrl, resolvedApiKey, transformer);
+        const isAnthropic = transformer === "Anthropic" || resolvedApiBaseUrl.includes("anthropic") || resolvedApiBaseUrl.includes("freemodel") || resolvedApiBaseUrl.includes("agentrouter");
+
+        // Build request body based on endpoint type
+        let body: string;
+        if (isAnthropic) {
+          body = JSON.stringify({
+            model,
+            max_tokens: 10,
+            messages: [{ role: "user", content: "hi" }],
+          });
+        } else {
+          body = JSON.stringify({
+            model,
+            messages: [{ role: "user", content: "hi" }],
+            max_tokens: 10,
+          });
+        }
+
+        // Gemini-specific handling
+        if (resolvedApiBaseUrl.includes("generativelanguage.googleapis.com")) {
+          const geminiUrl = `${resolvedApiBaseUrl.replace(/\/+$/, "")}/${model}:streamGenerateContent?key=${resolvedApiKey}`;
+          const geminiResp = await fetch(geminiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ parts: [{ text: "hi" }] }] }),
+            signal: AbortSignal.timeout(15000),
+            ...(dispatcher ? { dispatcher } : {}),
+          });
+          const latency = Date.now() - start;
+          if (geminiResp.ok) {
+            return { latency, status: geminiResp.status };
+          } else {
+            const text = await geminiResp.text().catch(() => "");
+            return reply.status(geminiResp.status === 401 ? 400 : geminiResp.status).send({
+              error: `Gemini API returned ${geminiResp.status}: ${text.slice(0, 200)}`,
+              latency: -1,
+            });
+          }
+        }
+
+        const response = await fetch(resolvedApiBaseUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: "hi" }] }] }),
+          headers: { ...headers, "Content-Type": "application/json" },
+          body,
           signal: AbortSignal.timeout(15000),
+          ...(dispatcher ? { dispatcher } : {}),
         });
+
         const latency = Date.now() - start;
-        return { latency, status: geminiResp.status };
+        if (response.ok) {
+          return { latency, status: response.status };
+        } else {
+          const text = await response.text().catch(() => "");
+          const status = response.status === 401 ? 400 : response.status;
+          return reply.status(status).send({
+            error: `Provider returned ${response.status}: ${text.slice(0, 200)}`,
+            latency: -1,
+          });
+        }
+      } catch (err: any) {
+        const message = err?.name === "TimeoutError"
+          ? "Request timed out after 15s"
+          : err?.message || "Unknown error";
+        return reply.status(502).send({ error: message, latency: -1 });
       }
-
-      const response = await fetch(api_base_url, {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body,
-        signal: AbortSignal.timeout(15000),
-      });
-
-      const latency = Date.now() - start;
-      if (response.ok) {
-        return { latency, status: response.status };
-      } else {
-        const text = await response.text().catch(() => "");
-        return reply.status(response.status).send({
-          error: `Provider returned ${response.status}: ${text.slice(0, 200)}`,
-          latency: -1,
-        });
-      }
-    } catch (err: any) {
-      const message = err?.name === "TimeoutError"
-        ? "Request timed out after 15s"
-        : err?.message || "Unknown error";
-      return reply.status(502).send({ error: message, latency: -1 });
-    }
-  });
+    });
 
   // Register static file serving with caching
   app.register(fastifyStatic, {

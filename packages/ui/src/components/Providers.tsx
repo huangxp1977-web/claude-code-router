@@ -825,7 +825,7 @@ export function Providers() {
           handleCancelAddProvider();
         }
       }}>
-        <DialogContent className="max-h-[80vh] flex flex-col sm:max-w-2xl">
+        <DialogContent className="max-h-[80vh] flex flex-col sm:max-w-2xl" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} onFocusOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{t("providers.edit")}</DialogTitle>
           </DialogHeader>
@@ -940,14 +940,14 @@ export function Providers() {
                     </Button>
                   </div>
                   {fetchedModels.length > 0 && (
-                    <Popover open={modelSelectOpen} onOpenChange={setModelSelectOpen}>
+                    <Popover open={modelSelectOpen} onOpenChange={setModelSelectOpen} modal={false}>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start text-muted-foreground">
                           <Search className="mr-2 h-4 w-4" />
                           {t("providers.select_from_available")}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" onWheel={(e) => e.stopPropagation()}>
                         <Command>
                           <CommandInput placeholder={t("providers.models_placeholder")} />
                           <CommandList className="max-h-64 overflow-y-auto">
@@ -1444,7 +1444,7 @@ export function Providers() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deletingProviderIndex !== null} onOpenChange={() => setDeletingProviderIndex(null)}>
-        <DialogContent>
+        <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} onFocusOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{t("providers.delete")}</DialogTitle>
             <DialogDescription>

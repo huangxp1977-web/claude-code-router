@@ -420,12 +420,20 @@ async function sendRequestToProvider(
     }
   }
 
+  // Bind client abort signal to prevent zombie connections
+  // When user presses Ctrl+C or cancels, the underlying fetch is aborted immediately
+  const abortController = new AbortController();
+  if (context.req?.raw && typeof context.req.raw.on === "function") {
+    context.req.raw.on("close", () => abortController.abort());
+  }
+
   const response = await sendUnifiedRequest(
     url,
     requestBody,
     {
       httpsProxy: fastify.configService.getHttpsProxy(),
       ...config,
+      signal: abortController.signal,
       headers: JSON.parse(JSON.stringify(requestHeaders)),
     },
     context,

@@ -150,6 +150,38 @@ class Server {
             });
           }
         });
+        // Split model string into provider and model name for downstream processing
+        fastify.addHook(
+          "preHandler",
+          async (req: FastifyRequest, reply: FastifyReply) => {
+            const url = new URL(`http://127.0.0.1${req.url}`);
+            if (url.pathname.endsWith("/v1/messages") && req.body) {
+              try {
+                const body = req.body as any;
+                if (!body || !body.model) {
+                  return reply
+                    .code(400)
+                    .send({ error: "Missing model in request body" });
+                }
+                let modelStr = body.model;
+                if (Array.isArray(modelStr)) {
+                  modelStr = modelStr[0];
+                }
+                if (typeof modelStr !== "string") {
+                  return reply.code(400).send({ error: "Invalid model type in request body" });
+                }
+                const [provider, ...model] = modelStr.split(",");
+                body.model = model.join(",");
+                req.provider = provider;
+                req.model = model;
+                return;
+              } catch (err) {
+                req.log.error({error: err}, "Error in modelProviderMiddleware:");
+                return reply.code(500).send({ error: "Internal server error" });
+              }
+            }
+          }
+        );
         await registerApiRoutes(fastify);
       });
       return
@@ -191,29 +223,8 @@ class Server {
           });
         }
       });
-      await registerApiRoutes(fastify);
-    }, { prefix: name });
-  }
-
-  async start(): Promise<void> {
-    try {
-      this.app._server = this;
-
-      this.app.addHook("preHandler", (req, reply, done) => {
-        const url = new URL(`http://127.0.0.1${req.url}`);
-        if (url.pathname.endsWith("/v1/messages") && req.body) {
-          const body = req.body as any;
-          req.log.info({ data: body, type: "request body" });
-          if (!body.stream) {
-            body.stream = false;
-          }
-        }
-        done();
-      });
-
-      await this.registerNamespace('/')
-
-      this.app.addHook(
+      // Split model string into provider and model name for downstream processing
+      fastify.addHook(
         "preHandler",
         async (req: FastifyRequest, reply: FastifyReply) => {
           const url = new URL(`http://127.0.0.1${req.url}`);
@@ -244,7 +255,27 @@ class Server {
           }
         }
       );
+      await registerApiRoutes(fastify);
+    }, { prefix: name });
+  }
 
+  async start(): Promise<void> {
+    try {
+      this.app._server = this;
+
+      this.app.addHook("preHandler", (req, reply, done) => {
+        const url = new URL(`http://127.0.0.1${req.url}`);
+        if (url.pathname.endsWith("/v1/messages") && req.body) {
+          const body = req.body as any;
+          req.log.info({ data: body, type: "request body" });
+          if (!body.stream) {
+            body.stream = false;
+          }
+        }
+        done();
+      });
+
+      await this.registerNamespace('/')
 
       const address = await this.app.listen({
         port: parseInt(this.configService.get("PORT") || "3000", 10),

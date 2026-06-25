@@ -625,7 +625,7 @@ export class AnthropicTransformer implements Transformer {
                   // Record real usage at transformer level (before format conversion)
                   // This is the most reliable point to capture OpenAI provider usage data
                   const tokens = (chunk.usage.prompt_tokens || 0) + (chunk.usage.completion_tokens || 0);
-                  if (tokens > 0 && context.req?.provider && context.req?.body?.model) {
+                  if (tokens > 0 && context.req?.provider && context.req?.body?.model && !context.req?._usageRecorded) {
                     try {
                       recordModelUsage(context.req.provider, context.req.body.model, tokens);
                       context.req._usageRecorded = true; // mark to prevent double-count in onSend
@@ -640,9 +640,9 @@ export class AnthropicTransformer implements Transformer {
                       },
                       usage: {
                         input_tokens:
-                          (chunk.usage?.prompt_tokens || 0) -
-                          (chunk.usage?.prompt_tokens_details?.cached_tokens ||
-                            0),
+                          Math.max(0, (chunk.usage?.prompt_tokens || 0) -
+                                                      (chunk.usage?.prompt_tokens_details?.cached_tokens ||
+                                                        0)),
                         output_tokens: chunk.usage?.completion_tokens || 0,
                         cache_read_input_tokens:
                           chunk.usage?.prompt_tokens_details?.cached_tokens ||
@@ -652,9 +652,9 @@ export class AnthropicTransformer implements Transformer {
                   } else {
                     stopReasonMessageDelta.usage = {
                       input_tokens:
-                        (chunk.usage?.prompt_tokens || 0) -
-                        (chunk.usage?.prompt_tokens_details?.cached_tokens ||
-                          0),
+                        Math.max(0, (chunk.usage?.prompt_tokens || 0) -
+                                                    (chunk.usage?.prompt_tokens_details?.cached_tokens ||
+                                                      0)),
                       output_tokens: chunk.usage?.completion_tokens || 0,
                       cache_read_input_tokens:
                         chunk.usage?.prompt_tokens_details?.cached_tokens || 0,
@@ -1062,9 +1062,9 @@ export class AnthropicTransformer implements Transformer {
                         },
                         usage: {
                           input_tokens:
-                            (chunk.usage?.prompt_tokens || 0) -
-                            (chunk.usage?.prompt_tokens_details?.cached_tokens ||
-                              0),
+                            Math.max(0, (chunk.usage?.prompt_tokens || 0) -
+                                                        (chunk.usage?.prompt_tokens_details?.cached_tokens ||
+                                                          0)),
                           output_tokens: chunk.usage?.completion_tokens || 0,
                           cache_read_input_tokens:
                             chunk.usage?.prompt_tokens_details?.cached_tokens ||

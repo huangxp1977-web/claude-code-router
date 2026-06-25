@@ -1,6 +1,6 @@
 {
   "name": "@thxp/llms",
-  "version": "3.2.16",
+  "version": "3.2.17",
   "description": "A universal LLM API transformation server",
   "main": "dist/cjs/server.cjs",
   "module": "dist/esm/server.mjs",
