@@ -120,10 +120,20 @@ export function Providers() {
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
   const [testingModel, setTestingModel] = useState<string | null>(null);
   const [resultLatencies, setResultLatencies] = useState<Record<string, number>>({});
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
   // Drag-and-drop state for model badges
   const [draggedModelIndex, setDraggedModelIndex] = useState<number | null>(null);
   const [dragOverModelIndex, setDragOverModelIndex] = useState<number | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
+
+  // Reorder providers (drag and drop)
+  const handleReorderProviders = (fromIndex: number, toIndex: number) => {
+    if (!config) return;
+    const currentConfig = config;
+    const newProviders = [...currentConfig.Providers];
+    const [removed] = newProviders.splice(fromIndex, 1);
+    newProviders.splice(toIndex, 0, removed);
+    setConfig(prev => prev ? { ...prev, Providers: newProviders } : null);
+  };
 
   useEffect(() => {
     const builtinTemplates: ProviderType[] = [
@@ -185,6 +195,9 @@ export function Providers() {
     }));
     setApiKeyError(null);
     setNameError(null);
+    setFetchedModels([]);
+    setSelectedModels(new Set());
+    setResultLatencies({});
   };
 
   const handleEditProvider = (index: number) => {
@@ -202,6 +215,9 @@ export function Providers() {
     }));
     setApiKeyError(null);
     setNameError(null);
+    setFetchedModels([]);
+    setSelectedModels(new Set());
+    setResultLatencies({});
   };
 
   const handleSaveProvider = () => {
@@ -300,6 +316,9 @@ export function Providers() {
     setEditingProviderIndex(null);
     setEditingProviderData(null);
     setIsNewProvider(false);
+    setFetchedModels([]);
+    setSelectedModels(new Set());
+    setResultLatencies({});
   };
 
   const handleCancelAddProvider = () => {
@@ -816,6 +835,7 @@ export function Providers() {
           providers={filteredProviders}
           onEdit={handleEditProvider}
           onRemove={handleSetDeletingProviderIndex}
+          onReorder={searchTerm ? undefined : handleReorderProviders}
         />
       </CardContent>
 
