@@ -10,7 +10,7 @@ import { LogViewer } from "@/components/LogViewer";
 import { Button } from "@/components/ui/button";
 import { useConfig } from "@/components/ConfigProvider";
 import { api } from "@/lib/api";
-import { Settings, Languages, Save, RefreshCw, FileJson, CircleArrowUp, FileText, FileCog, Router as RouterIcon } from "lucide-react";
+import { Settings, Languages, RefreshCw, FileJson, CircleArrowUp, FileText, FileCog, Router as RouterIcon } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -78,53 +78,7 @@ function App() {
     }
   };
 
-  const saveConfigAndRestart = async () => {
-    // Handle case where config might be null or undefined
-    if (!config) {
-      setToast({ message: t('app.config_missing'), type: 'error' });
-      return;
-    }
-    
-    try {
-      // Save to API
-      const response = await api.updateConfig(config);
-      
-      // Check if save was successful before restarting
-      let saveSuccessful = true;
-      if (response && typeof response === 'object' && 'success' in response) {
-        const apiResponse = response as { success: boolean; message?: string };
-        if (!apiResponse.success) {
-          saveSuccessful = false;
-          setToast({ message: apiResponse.message || t('app.config_saved_failed'), type: 'error' });
-        }
-      }
-      
-      // Only restart if save was successful
-      if (saveSuccessful) {
-        // Restart service
-        const response = await api.restartService();
-        
-        // Show success message or handle as needed
-        console.log('Config saved and service restarted successfully');
-        
-        // 根据响应信息进行提示
-        if (response && typeof response === 'object' && 'success' in response) {
-          const apiResponse = response as { success: boolean; message?: string };
-          if (apiResponse.success) {
-            setToast({ message: apiResponse.message || t('app.config_saved_restart_success'), type: 'success' });
-          }
-        } else {
-          // 默认成功提示
-          setToast({ message: t('app.config_saved_restart_success'), type: 'success' });
-        }
-      }
-    } catch (error) {
-      console.error('Failed to save config and restart:', error);
-      // Handle error appropriately
-      setToast({ message: t('app.config_saved_restart_failed') + ': ' + (error as Error).message, type: 'error' });
-    }
-  };
-  
+
   // 检查更新函数
   const checkForUpdates = useCallback(async (showDialog: boolean = true) => {
     // 如果已经检查过且有新版本，根据参数决定是否显示对话框
@@ -390,13 +344,9 @@ function App() {
               </TooltipContent>
             </Tooltip>
           )}
-          <Button onClick={saveConfig} variant="outline" className="transition-all-ease hover:scale-[1.02] active:scale-[0.98]">
-            <Save className="mr-2 h-4 w-4" />
-            {t('app.save')}
-          </Button>
-          <Button onClick={saveConfigAndRestart} className="transition-all-ease hover:scale-[1.02] active:scale-[0.98]">
+          <Button onClick={saveConfig} className="transition-all-ease hover:scale-[1.02] active:scale-[0.98]">
             <RefreshCw className="mr-2 h-4 w-4" />
-            {t('app.save_and_restart')}
+            {t('app.save')}
           </Button>
         </div>
       </header>

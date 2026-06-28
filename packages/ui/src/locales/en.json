@@ -5,8 +5,7 @@
   },
   "app": {
     "title": "Claude Code Router",
-    "save": "Save",
-    "save_and_restart": "Save and Restart",
+    "save": "Save & Apply",
     "cancel": "Cancel",
     "edit": "Edit",
     "remove": "Remove",
@@ -132,11 +131,10 @@
   },
   "json_editor": {
     "title": "JSON Editor",
-    "save": "Save",
+    "save": "Save & Apply",
     "saving": "Saving...",
     "cancel": "Cancel",
-    "save_failed": "Failed to save config",
-    "save_and_restart": "Save & Restart"
+    "save_failed": "Failed to save config"
   },
   "statusline": {
     "title": "Status Line Configuration",
@@ -170,7 +168,6 @@
     "color_black": "Black",
     "color_red": "Red",
     "color_green": "Green",
-    "color_yellow": "Yellow",
     "color_blue": "Blue",
     "color_magenta": "Magenta",
     "color_cyan": "Cyan",
@@ -178,7 +175,6 @@
     "color_bright_black": "Bright Black",
     "color_bright_red": "Bright Red",
     "color_bright_green": "Bright Green",
-    "color_bright_yellow": "Bright Yellow",
     "color_bright_blue": "Bright Blue",
     "color_bright_magenta": "Bright Magenta",
     "color_bright_cyan": "Bright Cyan",
@@ -271,7 +267,6 @@
     "install_dialog_title": "Install Preset",
     "install_dialog_description": "Install a preset from a GitHub repository",
     "from_url": "From GitHub",
-    "github_repository": "GitHub Repository",
     "preset_url": "Repository URL",
     "preset_url_placeholder": "https://github.com/owner/repo",
     "preset_name": "Preset Name (Optional)",

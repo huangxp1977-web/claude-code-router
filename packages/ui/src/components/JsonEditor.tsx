@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useConfig } from '@/components/ConfigProvider';
 import { api } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
-import { Save, X, RefreshCw } from 'lucide-react';
+import { X, RefreshCw } from 'lucide-react';
 
 interface JsonEditorProps {
   open: boolean;
@@ -97,45 +97,6 @@ export function JsonEditor({ open, onOpenChange, showToast }: JsonEditorProps) {
     }
   };
 
-  const handleSaveAndRestart = async () => {
-    if (!jsonValue) return;
-    
-    try {
-      setIsSaving(true);
-      const parsedConfig = JSON.parse(jsonValue);
-      
-      // Save config first
-      const saveResponse = await api.updateConfig(parsedConfig);
-      const saveSuccessful = handleSaveResponse(
-        saveResponse,
-        t('app.config_saved_success'),
-        t('app.config_saved_failed')
-      );
-      
-      // Only restart if save was successful
-      if (saveSuccessful) {
-        setConfig(parsedConfig);
-        // Restart service
-        const restartResponse = await api.restartService();
-        
-        handleSaveResponse(
-          restartResponse,
-          t('app.config_saved_restart_success'),
-          t('app.config_saved_restart_failed')
-        );
-        
-        onOpenChange(false);
-      }
-    } catch (error) {
-      console.error('Failed to save config and restart:', error);
-      if (showToast) {
-        showToast(t('app.config_saved_restart_failed') + ': ' + (error as Error).message, 'error');
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   if (!isVisible && !open) {
     return null;
   }
@@ -174,24 +135,15 @@ export function JsonEditor({ open, onOpenChange, showToast }: JsonEditorProps) {
               {t('json_editor.cancel')}
             </Button>
             <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSave}
-              disabled={isSaving}
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {isSaving ? t('json_editor.saving') : t('json_editor.save')}
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleSaveAndRestart}
-              disabled={isSaving}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              {isSaving ? t('json_editor.saving') : t('json_editor.save_and_restart')}
-            </Button>
-          </div>
+                variant="default"
+                size="sm"
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                {isSaving ? t('json_editor.saving') : t('json_editor.save')}
+              </Button>
+            </div>
         </div>
         
         <div className="flex-1 min-h-0 bg-gray-50">

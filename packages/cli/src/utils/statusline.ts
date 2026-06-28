@@ -692,12 +692,13 @@ export async function parseStatusLineData(input: StatusLineInput, presetName?: s
                 const config = JSON5.parse(configContent);
 
                 // Get model name from Router field's default content
-                if (config.Router && config.Router.default) {
-                    const [, defaultModel] = config.Router.default.split(",");
-                    if (defaultModel) {
-                        model = defaultModel.trim();
-                    }
-                }
+                                if (config.Router && config.Router.default) {
+                                    const defaultVal = Array.isArray(config.Router.default) ? config.Router.default[0] : config.Router.default;
+                                    const [, defaultModel] = defaultVal.split(",");
+                                    if (defaultModel) {
+                                        model = defaultModel.trim();
+                                    }
+                                }
             } catch (configError) {
                 // If configuration file reading fails, ignore error
             }

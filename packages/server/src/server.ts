@@ -110,6 +110,13 @@ export const createServer = async (config: any): Promise<any> => {
     }
 
     await writeConfigFile(newConfig);
+    const server = (app as any)._server;
+    if (server) {
+      server.configService.reload();
+      await server.transformerService.reload();
+      server.providerService.reload();
+      app.log.info('Config hot-reloaded successfully');
+    }
     return { success: true, message: "Config saved successfully" };
   });
 

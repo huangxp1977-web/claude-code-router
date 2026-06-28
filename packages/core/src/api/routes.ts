@@ -14,6 +14,7 @@ import { ProviderService } from "@/services/provider";
 import { TransformerService } from "@/services/transformer";
 import { Transformer } from "@/types/transformer";
 import { markModelAsFailed, getModelSpec, isModelFailed } from "@/utils/cache";
+import { SSEParserTransform, SSESerializerTransform, rewriteStream } from "@/utils/sse";
 
 // Extend FastifyInstance to include custom services
 declare module "fastify" {
@@ -538,7 +539,29 @@ async function formatResponse(response: any, reply: FastifyReply, body: any) {
     reply.header("Content-Type", "text/event-stream");
     reply.header("Cache-Control", "no-cache");
     reply.header("Connection", "keep-alive");
-    return reply.send(response.body);
+
+    // Rewrite message_start event's model field to prevent
+    // Claude Code from recording provider's raw model name in session files
+    const rewrittenStream = rewriteStream(
+      response.body
+        .pipeThrough(new TextDecoderStream())
+        .pipeThrough(new SSEParserTransform()),
+      async (event: any) => {
+        if (
+          event?.data?.type === "message_start" &&
+          event?.data?.message?.model
+        ) {
+          event.data.message.model = body.model;
+        }
+        return event;
+      }
+    );
+
+    return reply.send(
+      rewrittenStream
+        .pipeThrough(new SSESerializerTransform())
+        .pipeThrough(new TextEncoderStream())
+    );
   } else {
     // Check if response is gzip compressed
     const contentEncoding = response.headers.get("Content-Encoding");
@@ -563,7 +586,13 @@ async function formatResponse(response: any, reply: FastifyReply, body: any) {
     }
 
     try {
-      return JSON.parse(rawText);
+      const parsed = JSON.parse(rawText);
+      // Rewrite model field in non-streaming response to prevent
+      // Claude Code from recording provider's raw model name
+      if (parsed?.model) {
+        parsed.model = body.model;
+      }
+      return parsed;
     } catch (jsonError: any) {
       throw createApiError(
         `Failed to parse JSON response from provider: ${jsonError.message}. Raw response: ${rawText.substring(0, 500)}`,

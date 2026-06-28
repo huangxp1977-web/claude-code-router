@@ -187,8 +187,8 @@ const getUseModel = async (
         [pName, mName] = modelConfig.split(",");
       } else {
         mName = modelConfig;
-        const found = providers.find((p: any) => p.models.includes(mName) && p.api_key && p.api_key.trim() !== "" && p.api_base_url && p.api_base_url.trim() !== "");
-        if (found) pName = found.name;
+        // No blind scan - bare model names without provider prefix are invalid
+        // User must use "Provider,model" format in Router config
       }
       if (pName && mName) {
         const provider = providers.find((p: any) => p.name.toLowerCase() === pName.toLowerCase());
@@ -209,10 +209,9 @@ const getUseModel = async (
               return model;
             }
           } else {
-            const provider = providers.find(p => p.models.includes(model) && p.api_key && p.api_key.trim() !== "" && p.api_base_url && p.api_base_url.trim() !== "");
-            if (provider && !isModelFailed(getModelSpec(provider.name, model)) && !isModelCapped(provider, model)) {
-              return model;
-            }
+            // No blind scan - bare model names without provider prefix are invalid
+            // User must use "Provider,model" format in Router config
+            continue;
           }
         }
       }

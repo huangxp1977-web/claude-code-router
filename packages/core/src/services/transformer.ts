@@ -21,6 +21,11 @@ export class TransformerService {
     private readonly logger: any
   ) {}
 
+  async reload(): Promise<void> {
+    this.transformers.clear();
+    await this.initialize();
+  }
+
   registerTransformer(name: string, transformer: Transformer): void {
     this.transformers.set(name, transformer);
     this.logger.info(

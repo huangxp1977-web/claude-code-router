@@ -17,6 +17,12 @@ export class ProviderService {
     this.initializeCustomProviders();
   }
 
+  public reload() {
+    this.providers.clear();
+    this.modelRoutes.clear();
+    this.initializeCustomProviders();
+  }
+
   private initializeCustomProviders() {
     const providersConfig =
       this.configService.get<ConfigProvider[]>("providers");

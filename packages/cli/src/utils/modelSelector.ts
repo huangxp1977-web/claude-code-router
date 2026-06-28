@@ -108,13 +108,19 @@ function displayCurrentConfig(config: Config): void {
   console.log(`${BOLDCYAN}           Current Configuration${RESET}`);
   console.log(`${BOLDCYAN}═══════════════════════════════════════════════${RESET}\n`);
   
-  const formatModel = (routerValue?: string | number) => {
-    if (!routerValue || typeof routerValue === 'number') {
-      return `${DIM}Not configured${RESET}`;
-    }
-    const [provider, model] = routerValue.split(',');
-    return `${YELLOW}${provider}${RESET} | ${model}\n  ${DIM}- ${routerValue}${RESET}`;
-  };
+  const formatModel = (routerValue?: string | string[] | number) => {
+      if (!routerValue || typeof routerValue === 'number') {
+        return `${DIM}Not configured${RESET}`;
+      }
+      const firstValue = Array.isArray(routerValue) ? (routerValue[0] || '') : routerValue;
+      if (!firstValue) {
+        return `${DIM}Not configured${RESET}`;
+      }
+      const parts = firstValue.split(',');
+      const provider = parts[0];
+      const model = parts[1] || '';
+      return `${YELLOW}${provider}${RESET} | ${model}\n  ${DIM}- ${routerValue}${RESET}`;
+    };
   
   console.log(`${BOLDCYAN}Default Model:${RESET}`);
   console.log(`  ${formatModel(config.Router.default)}\n`);

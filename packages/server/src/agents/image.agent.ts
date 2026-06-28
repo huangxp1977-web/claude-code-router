@@ -46,6 +46,10 @@ class ImageCache {
 
 const imageCache = new ImageCache();
 
+function getImageModel(config: any): string | undefined {
+  return Array.isArray(config.Router?.image) ? config.Router.image[0] : config.Router?.image;
+}
+
 export class ImageAgent implements IAgent {
   name = "image";
   tools: Map<string, ITool>;
@@ -56,22 +60,23 @@ export class ImageAgent implements IAgent {
   }
 
   shouldHandle(req: any, config: any): boolean {
-    if (!config.Router.image || req.body.model === config.Router.image)
-      return false;
-    const lastMessage = req.body.messages[req.body.messages.length - 1];
-    if (
-      !config.forceUseImageAgent &&
-      lastMessage.role === "user" &&
-      Array.isArray(lastMessage.content) &&
-      lastMessage.content.find(
-        (item: any) =>
-          item.type === "image" ||
-          (Array.isArray(item?.content) &&
-            item.content.some((sub: any) => sub.type === "image"))
-      )
-    ) {
-      req.body.model = config.Router.image;
-      const images: any[] = [];
+      const imageModel = getImageModel(config);
+      if (!imageModel || req.body.model === imageModel)
+        return false;
+      const lastMessage = req.body.messages[req.body.messages.length - 1];
+      if (
+        !config.forceUseImageAgent &&
+        lastMessage.role === "user" &&
+        Array.isArray(lastMessage.content) &&
+        lastMessage.content.find(
+          (item: any) =>
+            item.type === "image" ||
+            (Array.isArray(item?.content) &&
+              item.content.some((sub: any) => sub.type === "image"))
+        )
+      ) {
+        req.body.model = imageModel;
+        const images: any[] = [];
       lastMessage.content
         .filter((item: any) => item.type === "tool_result")
         .forEach((item: any) => {
@@ -209,8 +214,8 @@ export class ImageAgent implements IAgent {
               "content-type": "application/json",
             },
             body: JSON.stringify({
-              model: context.config.Router.image,
-              system: [
+                          model: getImageModel(context.config),
+                          system: [
                 {
                   type: "text",
                   text: `You must interpret and analyze images strictly according to the assigned task.  

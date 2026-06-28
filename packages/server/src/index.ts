@@ -483,13 +483,6 @@ async function getServer(options: RunOptions = {}) {
 
 async function run() {
   const server = await getServer();
-  server.app.post("/api/restart", async () => {
-    setTimeout(async () => {
-      process.exit(0);
-    }, 100);
-
-    return { success: true, message: "Service restart initiated" }
-  });
   await server.start();
 }
 

@@ -5,8 +5,7 @@
   },
   "app": {
     "title": "Claude Code Router",
-    "save": "保存",
-    "save_and_restart": "保存并重启",
+    "save": "保存并生效",
     "cancel": "取消",
     "edit": "编辑",
     "remove": "移除",
@@ -132,11 +131,10 @@
   },
   "json_editor": {
     "title": "JSON 编辑器",
-    "save": "保存",
+    "save": "保存并生效",
     "saving": "保存中...",
     "cancel": "取消",
-    "save_failed": "配置保存失败",
-    "save_and_restart": "保存并重启"
+    "save_failed": "配置保存失败"
   },
   "statusline": {
     "title": "状态栏配置",
@@ -170,7 +168,6 @@
     "color_black": "黑色",
     "color_red": "红色",
     "color_green": "绿色",
-    "color_yellow": "黄色",
     "color_blue": "蓝色",
     "color_magenta": "品红",
     "color_cyan": "青色",
@@ -178,7 +175,6 @@
     "color_bright_black": "亮黑色",
     "color_bright_red": "亮红色",
     "color_bright_green": "亮绿色",
-    "color_bright_yellow": "亮黄色",
     "color_bright_blue": "亮蓝色",
     "color_bright_magenta": "亮品红",
     "color_bright_cyan": "亮青色",
