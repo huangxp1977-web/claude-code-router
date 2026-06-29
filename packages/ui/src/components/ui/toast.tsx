@@ -38,7 +38,7 @@ export function Toast({ message, type, onClose }: ToastProps) {
       case 'warning':
         return 'bg-yellow-100 border-yellow-200';
       default:
-        return 'bg-gray-100 border-gray-300';
+        return 'bg-accent border-border';
     }
   };
 
@@ -50,7 +50,7 @@ export function Toast({ message, type, onClose }: ToastProps) {
       </div>
       <button
         onClick={onClose}
-        className="ml-4 text-gray-500 hover:text-gray-700 focus:outline-none"
+        className="ml-4 text-muted-foreground hover:text-muted-foreground focus:outline-none"
       >
         <X className="h-4 w-4" />
       </button>

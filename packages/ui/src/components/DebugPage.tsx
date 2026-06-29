@@ -251,15 +251,15 @@ export function DebugPage() {
 
 
   return (
-    <div className="h-screen bg-gray-50 font-sans">
+    <div className="h-screen bg-background font-sans">
       {/* 头部 */}
-      <header className="flex h-16 items-center justify-between border-b bg-white px-6">
+      <header className="flex h-16 items-center justify-between border-b bg-card px-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             返回
           </Button>
-          <h1 className="text-xl font-semibold text-gray-800">HTTP 调试器</h1>
+          <h1 className="text-xl font-semibold text-foreground">HTTP 调试器</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => setIsHistoryDrawerOpen(true)}>
@@ -277,7 +277,7 @@ export function DebugPage() {
       <main className="flex h-[calc(100vh-4rem)] flex-col gap-4 p-4 overflow-hidden">
         {/* 上部分：请求参数配置 - 上中下布局 */}
         <div className="h-1/2 flex flex-col gap-4">
-          <div className="bg-white rounded-lg border p-4 flex-1 flex flex-col">
+          <div className="bg-card rounded-lg border p-4 flex-1 flex flex-col">
             <h3 className="font-medium mb-4">请求参数配置</h3>
             <div className="flex flex-col gap-4 flex-1">
               {/* 上：Method、URL和发送请求按钮配置 */}
@@ -336,7 +336,7 @@ export function DebugPage() {
                   <TabsContent value="headers" className="flex-1 mt-2">
                     <div
                       className={`${fullscreenEditor === 'headers' ? '' : 'h-full'} flex flex-col ${
-                        fullscreenEditor === 'headers' ? 'fixed bg-white w-[100vw] h-[100vh] z-[9999] top-0 left-0 p-4' : ''
+                        fullscreenEditor === 'headers' ? 'fixed bg-card w-[100vw] h-[100vh] z-[9999] top-0 left-0 p-4' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -352,7 +352,7 @@ export function DebugPage() {
                       </div>
                       <div
                         id="fullscreen-headers"
-                        className={`${fullscreenEditor === 'headers' ? 'h-full' : 'flex-1'} border border-gray-400 rounded-md overflow-hidden relative`}
+                        className={`${fullscreenEditor === 'headers' ? 'h-full' : 'flex-1'} border border-border rounded-md overflow-hidden relative`}
                       >
                         <MonacoEditor
                           height="100%"
@@ -380,7 +380,7 @@ export function DebugPage() {
                   <TabsContent value="body" className="flex-1 mt-2">
                     <div
                       className={`${fullscreenEditor === 'body' ? '' : 'h-full'} flex flex-col ${
-                        fullscreenEditor === 'body' ? 'fixed bg-white w-[100vw] h-[100vh] z-[9999] top-0 left-0 p-4' : ''
+                        fullscreenEditor === 'body' ? 'fixed bg-card w-[100vw] h-[100vh] z-[9999] top-0 left-0 p-4' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -396,7 +396,7 @@ export function DebugPage() {
                       </div>
                       <div
                         id="fullscreen-body"
-                        className={`${fullscreenEditor === 'body' ? 'h-full' : 'flex-1'} border border-gray-400 rounded-md overflow-hidden relative`}
+                        className={`${fullscreenEditor === 'body' ? 'h-full' : 'flex-1'} border border-border rounded-md overflow-hidden relative`}
                       >
                         <MonacoEditor
                           height="100%"
@@ -428,7 +428,7 @@ export function DebugPage() {
 
         {/* 下部分：响应信息查看 */}
         <div className="h-1/2 flex flex-col gap-4">
-          <div className="flex-1 bg-white rounded-lg border p-4 flex flex-col">
+          <div className="flex-1 bg-card rounded-lg border p-4 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium">响应信息</h3>
               {responseData.status > 0 && (
@@ -460,7 +460,7 @@ export function DebugPage() {
                   </TabsList>
 
                   <TabsContent value="body" className="flex-1 mt-2">
-                    <div className="bg-gray-50 border rounded-md p-3 h-full overflow-auto">
+                    <div className="bg-muted border rounded-md p-3 h-full overflow-auto">
                       <pre className="text-sm whitespace-pre-wrap">
                         {responseData.body}
                       </pre>
@@ -468,7 +468,7 @@ export function DebugPage() {
                   </TabsContent>
 
                   <TabsContent value="headers" className="flex-1 mt-2">
-                    <div className="bg-gray-50 border rounded-md p-3 h-full overflow-auto">
+                    <div className="bg-muted border rounded-md p-3 h-full overflow-auto">
                       <pre className="text-sm">
                         {responseData.headers}
                       </pre>
@@ -477,7 +477,7 @@ export function DebugPage() {
                 </Tabs>
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-500">
+              <div className="flex-1 flex items-center justify-center text-muted-foreground">
                 {isLoading ? '发送请求中...' : '发送请求后将在此显示响应'}
               </div>
             )}

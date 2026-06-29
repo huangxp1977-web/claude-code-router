@@ -173,7 +173,7 @@ export function Providers() {
           <CardTitle className="text-lg">{t("providers.title")}</CardTitle>
         </CardHeader>
         <CardContent className="flex-grow flex items-center justify-center p-4">
-          <div className="text-gray-500">Loading providers configuration...</div>
+          <div className="text-muted-foreground">Loading providers configuration...</div>
         </CardContent>
       </Card>
     );
@@ -806,12 +806,12 @@ export function Providers() {
     <Card className="flex h-full flex-col rounded-lg border shadow-sm">
       <CardHeader className="flex flex-col border-b p-4 gap-3">
         <div className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">{t("providers.title")} <span className="text-sm font-normal text-gray-500">({filteredProviders.length}/{validProviders.length})</span></CardTitle>
+          <CardTitle className="text-lg">{t("providers.title")} <span className="text-sm font-normal text-muted-foreground">({filteredProviders.length}/{validProviders.length})</span></CardTitle>
           <Button onClick={handleAddProvider}>{t("providers.add")}</Button>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={t("providers.search")}
               value={searchTerm}
@@ -1065,7 +1065,7 @@ export function Providers() {
                         {model}
                         <button
                           type="button"
-                          className="ml-1 rounded-full hover:bg-gray-200"
+                          className="ml-1 rounded-full hover:bg-secondary"
                           onClick={(e) => {
                             e.stopPropagation();
                             editingProviderIndex !== null && handleRemoveModel(editingProviderIndex, modelIndex);
@@ -1079,7 +1079,7 @@ export function Providers() {
                   {editingProvider.models && editingProvider.models.length > 0 && (
                     <div className="space-y-2 pt-2">
                       <Label className="text-sm">{t("providers.model_limits")}</Label>
-                      <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-2 bg-gray-50">
+                      <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-2 bg-muted">
                         {editingProvider.models.map((model: string) => (
                           <div key={model} className="flex items-center gap-2">
                             <span className="text-sm font-medium w-1/3 truncate">{model}</span>
@@ -1131,7 +1131,7 @@ export function Providers() {
                 {/* Display existing transformers */}
                 {editingProvider.transformer?.use && editingProvider.transformer.use.length > 0 && (
                   <div className="space-y-2 mt-2">
-                    <div className="text-sm font-medium text-gray-700">{t("providers.selected_transformers")}</div>
+                    <div className="text-sm font-medium text-muted-foreground">{t("providers.selected_transformers")}</div>
                     {editingProvider.transformer.use.map((transformer: string | (string | Record<string, unknown> | { max_tokens: number })[], transformerIndex: number) => {
                       const transformerName = typeof transformer === 'string' ? transformer : Array.isArray(transformer) ? String(transformer[0]) : String(transformer);
                       const existingParams = Array.isArray(transformer) && transformer.length > 1 && typeof transformer[1] === 'object' && transformer[1] !== null ? transformer[1] as Record<string, unknown> : {};
@@ -1141,9 +1141,9 @@ export function Providers() {
                       const providerHideInput = providerAllowedKeys && providerUnconfiguredKeys.length === 0;
                       const providerPrefilledName = providerUnconfiguredKeys.length > 0 ? providerUnconfiguredKeys[0] : "";
                       return (
-                      <div key={transformerIndex} className="border-2 border-slate-400 shadow-sm bg-white rounded-md p-3">
+                      <div key={transformerIndex} className="border-2 border-border shadow-sm bg-card rounded-md p-3">
                         <div className="flex gap-2 items-center mb-2">
-                          <div className="flex-1 bg-gray-50 rounded p-2 text-sm">
+                          <div className="flex-1 bg-muted rounded p-2 text-sm">
                             {typeof transformer === 'string' ? transformer : Array.isArray(transformer) ? String(transformer[0]) : String(transformer)}
                           </div>
                           <Button 
@@ -1239,7 +1239,7 @@ export function Providers() {
                               return Object.keys(params).length > 0 ? (
                                 <div className="space-y-1">
                                   {Object.entries(params).map(([key, value]) => (
-                                    <div key={key} className="flex items-center justify-between bg-slate-100/70 border border-slate-300 rounded p-2">
+                                    <div key={key} className="flex items-center justify-between bg-muted/70 border border-border rounded p-2">
                                       <div className="text-sm">
                                         <span className="font-medium">{key}:</span> {String(value)}
                                       </div>
@@ -1276,7 +1276,7 @@ export function Providers() {
                   <Label>{t("providers.model_transformers")}</Label>
                   <div className="space-y-3">
                     {(editingProvider.models || []).map((model: string, modelIndex: number) => (
-                      <div key={modelIndex} className="border border-slate-400 bg-slate-50/50 rounded-lg p-4 mb-4 shadow-sm">
+                      <div key={modelIndex} className="border border-border bg-muted/50 rounded-lg p-4 mb-4 shadow-sm">
                         <div className="font-medium text-sm mb-2 text-slate-800">{model}</div>
                         {/* Add new transformer */}
                         <div className="flex gap-2">
@@ -1301,7 +1301,7 @@ export function Providers() {
                         {/* Display existing transformers */}
                         {editingProvider.transformer?.[model]?.use && editingProvider.transformer[model].use.length > 0 && (
                           <div className="space-y-2 mt-2">
-                            <div className="text-sm font-medium text-gray-700">{t("providers.selected_transformers")}</div>
+                            <div className="text-sm font-medium text-muted-foreground">{t("providers.selected_transformers")}</div>
                             {editingProvider.transformer[model].use.map((transformer: string | (string | Record<string, unknown> | { max_tokens: number })[], transformerIndex: number) => {
                               const modelTransformerName = typeof transformer === 'string' ? transformer : Array.isArray(transformer) ? String(transformer[0]) : String(transformer);
                               const modelExistingParams = Array.isArray(transformer) && transformer.length > 1 && typeof transformer[1] === 'object' && transformer[1] !== null ? transformer[1] as Record<string, unknown> : {};
@@ -1311,9 +1311,9 @@ export function Providers() {
                               const modelHideInput = modelAllowedKeys && modelUnconfiguredKeys.length === 0;
                               const modelPrefilledName = modelUnconfiguredKeys.length > 0 ? modelUnconfiguredKeys[0] : "";
                               return (
-                              <div key={transformerIndex} className="border-2 border-slate-400 shadow-sm bg-white rounded-md p-3">
+                              <div key={transformerIndex} className="border-2 border-border shadow-sm bg-card rounded-md p-3">
                                 <div className="flex gap-2 items-center mb-2">
-                                  <div className="flex-1 bg-gray-50 rounded p-2 text-sm">
+                                  <div className="flex-1 bg-muted rounded p-2 text-sm">
                                     {typeof transformer === 'string' ? transformer : Array.isArray(transformer) ? String(transformer[0]) : String(transformer)}
                                   </div>
                                   <Button 
@@ -1409,7 +1409,7 @@ export function Providers() {
                                       return Object.keys(params).length > 0 ? (
                                         <div className="space-y-1">
                                           {Object.entries(params).map(([key, value]) => (
-                                            <div key={key} className="flex items-center justify-between bg-slate-100/70 border border-slate-300 rounded p-2">
+                                            <div key={key} className="flex items-center justify-between bg-muted/70 border border-border rounded p-2">
                                               <div className="text-sm">
                                                 <span className="font-medium">{key}:</span> {String(value)}
                                               </div>

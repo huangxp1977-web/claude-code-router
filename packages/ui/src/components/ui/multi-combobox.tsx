@@ -106,7 +106,7 @@ export function MultiCombobox({
               {option?.label || val}
               <button
                 onClick={(e) => removeValue(val, e)}
-                className="ml-1 rounded-full hover:bg-gray-200"
+                className="ml-1 rounded-full hover:bg-secondary"
               >
                 <X className="h-3 w-3" />
               </button>

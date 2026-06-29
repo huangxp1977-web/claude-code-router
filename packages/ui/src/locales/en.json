@@ -16,20 +16,12 @@
     "config_saved_failed": "Failed to save config",
     "config_saved_restart_success": "Config saved and service restarted successfully",
     "config_saved_restart_failed": "Failed to save config and restart service",
-    "new_version_available": "New Version Available",
-    "update_description": "A new version is available. Please review the changelog and update to get the latest features and improvements.",
-    "no_changelog_available": "No changelog available",
-    "later": "Later",
-    "update_now": "Update Now",
-    "no_updates_available": "No updates available",
-    "update_check_failed": "Failed to check for updates",
-    "update_successful": "Update successful",
-    "update_failed": "Update failed",
     "json_editor": "JSON Editor",
     "log_viewer": "Log Viewer",
     "presets": "Presets",
     "language": "Language",
-    "check_updates": "Check for Updates"
+    "check_updates": "Check for Updates",
+    "theme_toggle": "Toggle Theme"
   },
   "login": {
     "title": "Sign in to your account",
@@ -241,7 +233,11 @@
     "worker_error": "Worker error",
     "worker_init_failed": "Failed to initialize worker",
     "grouping_not_supported": "Log grouping not supported by server",
-    "back": "Back"
+    "back": "Back",
+    "delete_file": "Delete file",
+    "confirm_delete": "Delete log file?",
+    "log_deleted": "Log file deleted successfully",
+    "delete_failed": "Failed to delete log file"
   },
   "presets": {
     "title": "Presets",

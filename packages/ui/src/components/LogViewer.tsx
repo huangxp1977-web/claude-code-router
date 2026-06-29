@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
+import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { X, RefreshCw, Download, Trash2, ArrowLeft, File, Layers, Bug } from 'lucide-react';
+import { X, RefreshCw, Download, Trash2, ArrowLeft, File, Layers, Bug, AlertTriangle } from 'lucide-react';
 
 interface LogViewerProps {
   open: boolean;
@@ -52,6 +53,7 @@ interface GroupedLogsResponse {
 
 export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
   const { t } = useTranslation();
+  const { theme } = useTheme();
   const navigate = useNavigate();
   const [logs, setLogs] = useState<string[]>([]);
   const [logFiles, setLogFiles] = useState<LogFile[]>([]);
@@ -67,6 +69,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
   const refreshInterval = useRef<NodeJS.Timeout | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const editorRef = useRef<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LogFile | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -340,6 +343,26 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
   const selectFile = (file: LogFile) => {
     setSelectedFile(file);
     setAutoRefresh(false); // Reset auto refresh when changing files
+  };
+
+  const deleteLogFile = async (file: LogFile) => {
+    try {
+      await api.deleteLogFile(file.path);
+      showToast?.(t('log_viewer.log_deleted'), 'success');
+      // If currently viewing this file, go back to file list
+      if (selectedFile?.path === file.path) {
+        setSelectedFile(null);
+        setLogs([]);
+        setGroupedLogs(null);
+        setSelectedReqId(null);
+        setGroupByReqId(false);
+        setAutoRefresh(false);
+      }
+      loadLogFiles();
+    } catch (error) {
+      console.error('Failed to delete log file:', error);
+      showToast?.(t('log_viewer.delete_failed') + ': ' + (error as Error).message, 'error');
+    }
   };
 
 
@@ -704,7 +727,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
 
       <div
         ref={containerRef}
-        className={`fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-white shadow-2xl transition-all duration-300 ease-out transform ${
+        className={`fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-card shadow-2xl transition-all duration-300 ease-out transform ${
           isAnimating && open ? 'translate-y-0' : 'translate-y-full'
         }`}
         style={{
@@ -730,10 +753,10 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
               {getBreadcrumbs().map((breadcrumb, index) => (
                 <React.Fragment key={breadcrumb.id}>
                   {index > 0 && (
-                    <span className="text-gray-400 mx-1">/</span>
+                    <span className="text-muted-foreground mx-1">/</span>
                   )}
                   {index === getBreadcrumbs().length - 1 ? (
-                    <span className="text-gray-900 font-medium">
+                    <span className="text-foreground font-medium">
                       {breadcrumb.label}
                     </span>
                   ) : (
@@ -800,19 +823,19 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 bg-gray-50">
+        <div className="flex-1 min-h-0 bg-muted relative">
           {isLoading ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center absolute inset-0">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
           ) : selectedFile ? (
             <>
               {groupByReqId && groupedLogs && !selectedReqId ? (
                 // 显示日志组列表
-                <div className="flex flex-col h-full p-6">
+                <div className="flex flex-col absolute inset-0 p-6">
                   <div className="mb-4 flex-shrink-0">
                     <h3 className="text-lg font-medium mb-2">{t('log_viewer.request_groups')}</h3>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted-foreground">
                       {t('log_viewer.total_requests')}: {groupedLogs.summary.totalRequests} |
                       {t('log_viewer.total_logs')}: {groupedLogs.summary.totalLogs}
                     </p>
@@ -821,7 +844,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
                     {groupedLogs.summary.requests.map((request) => (
                       <div
                         key={request.reqId}
-                        className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                        className="border rounded-lg p-4 hover:bg-muted cursor-pointer transition-colors"
                         onClick={() => selectReqId(request.reqId)}
                       >
                         <div className="flex items-center justify-between mb-2">
@@ -838,7 +861,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
                             {request.logCount} {t('log_viewer.logs')}
                           </span>
                         </div>
-                        <div className="text-xs text-gray-500 space-y-1">
+                        <div className="text-xs text-muted-foreground space-y-1">
                           <div>{t('log_viewer.first_log')}: {formatDate(request.firstLog)}</div>
                           <div>{t('log_viewer.last_log')}: {formatDate(request.lastLog)}</div>
                         </div>
@@ -848,12 +871,12 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
                 </div>
               ) : (
                 // 显示日志内容
-                <div className="relative h-full">
+                <div className="absolute inset-0">
                   <Editor
                     height="100%"
                     defaultLanguage="json"
                     value={formatLogsForEditor()}
-                    theme="vs"
+                    theme={theme === 'dark' ? 'vs-dark' : 'vs'}
                     options={{
                       minimap: { enabled: true },
                       fontSize: 14,
@@ -872,11 +895,11 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
               )}
             </>
           ) : (
-            <div className="p-6">
+            <div className="absolute inset-0 p-6 overflow-y-auto">
               <h3 className="text-lg font-medium mb-4">{t('log_viewer.select_file')}</h3>
               {logFiles.length === 0 ? (
-                <div className="text-gray-500 text-center py-8">
-                  <File className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <div className="text-muted-foreground text-center py-8">
+                  <File className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <p>{t('log_viewer.no_log_files_available')}</p>
                 </div>
               ) : (
@@ -884,16 +907,26 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
                   {logFiles.map((file) => (
                     <div
                       key={file.path}
-                      className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="border rounded-lg p-4 hover:bg-muted cursor-pointer transition-colors group"
                       onClick={() => selectFile(file)}
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <File className="h-5 w-5 text-blue-600" />
-                          <span className="font-medium text-sm">{file.name}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <File className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                          <span className="font-medium text-sm truncate">{file.name}</span>
                         </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(file);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-600 p-1 flex-shrink-0"
+                          title={t('log_viewer.delete_file')}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
-                      <div className="text-xs text-gray-500 space-y-1">
+                      <div className="text-xs text-muted-foreground space-y-1">
                         <div>{formatFileSize(file.size)}</div>
                         <div>{formatDate(file.lastModified)}</div>
                       </div>
@@ -905,6 +938,40 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
           )}
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div className="bg-card rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-foreground">{t('log_viewer.confirm_delete')}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{deleteTarget.name}</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteTarget(null)}
+              >
+                {t('app.cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  deleteLogFile(deleteTarget);
+                  setDeleteTarget(null);
+                }}
+              >
+                {t('app.delete')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

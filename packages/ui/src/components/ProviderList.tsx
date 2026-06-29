@@ -20,7 +20,7 @@ export function ProviderList({ providers, onEdit, onRemove, onReorder }: Provide
   if (!providers || !Array.isArray(providers)) {
     return (
       <div className="space-y-3">
-        <div className="flex items-center justify-center rounded-md border bg-white p-8 text-gray-500">
+        <div className="flex items-center justify-center rounded-md border bg-card p-8 text-muted-foreground">
           No providers configured
         </div>
       </div>
@@ -68,7 +68,7 @@ export function ProviderList({ providers, onEdit, onRemove, onReorder }: Provide
           return (
             <div
               key={index}
-              className="flex items-start justify-between rounded-md border bg-white p-4 transition-all hover:shadow-md animate-slide-in hover:scale-[1.01]"
+              className="flex items-start justify-between rounded-md border bg-card p-4 transition-all hover:shadow-md animate-slide-in hover:scale-[1.01]"
               draggable={!!onReorder}
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}
@@ -77,8 +77,8 @@ export function ProviderList({ providers, onEdit, onRemove, onReorder }: Provide
               onDrop={(e) => handleDrop(e, index)}
             >
               <div className="flex-1 space-y-1.5">
-                <p className="text-md font-semibold text-gray-800">Invalid Provider</p>
-                <p className="text-sm text-gray-500">Provider data is missing</p>
+                <p className="text-md font-semibold text-foreground">Invalid Provider</p>
+                <p className="text-sm text-muted-foreground">Provider data is missing</p>
               </div>
               <div className="ml-4 flex flex-shrink-0 items-center gap-2">
                 <Button
@@ -119,7 +119,7 @@ export function ProviderList({ providers, onEdit, onRemove, onReorder }: Provide
           <div
             key={index}
             className={cn(
-              "flex items-start justify-between rounded-md border bg-white p-4 transition-all hover:shadow-md animate-slide-in hover:scale-[1.01]",
+              "flex items-start justify-between rounded-md border bg-card p-4 transition-all hover:shadow-md animate-slide-in hover:scale-[1.01]",
               isDragging && "opacity-50 scale-[1.02] shadow-lg",
               isDragOver && "border-dashed border-primary bg-primary/5",
               onReorder && "cursor-grab active:cursor-grabbing"
@@ -134,7 +134,7 @@ export function ProviderList({ providers, onEdit, onRemove, onReorder }: Provide
             {/* Drag Handle */}
             {onReorder && (
               <div
-                className="flex-shrink-0 mr-3 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing select-none"
+                className="flex-shrink-0 mr-3 flex items-center justify-center text-muted-foreground hover:text-muted-foreground cursor-grab active:cursor-grabbing select-none"
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -143,8 +143,8 @@ export function ProviderList({ providers, onEdit, onRemove, onReorder }: Provide
             )}
 
             <div className="flex-1 space-y-1.5">
-              <p className="text-md font-semibold text-gray-800">{providerName}</p>
-              <p className="text-sm text-gray-500">{apiBaseUrl}</p>
+              <p className="text-md font-semibold text-foreground">{providerName}</p>
+              <p className="text-sm text-muted-foreground">{apiBaseUrl}</p>
               <div className="flex flex-wrap gap-2 pt-2">
                 {models.map((model, modelIndex) => (
                   // Handle case where model might be null or undefined

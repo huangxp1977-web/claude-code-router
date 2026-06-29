@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { SettingsDialog } from "@/components/SettingsDialog";
@@ -9,8 +9,9 @@ import { JsonEditor } from "@/components/JsonEditor";
 import { LogViewer } from "@/components/LogViewer";
 import { Button } from "@/components/ui/button";
 import { useConfig } from "@/components/ConfigProvider";
+import { useTheme } from "@/context/ThemeContext";
 import { api } from "@/lib/api";
-import { Settings, Languages, RefreshCw, FileJson, CircleArrowUp, FileText, FileCog, Router as RouterIcon } from "lucide-react";
+import { Settings, Languages, RefreshCw, FileJson, FileText, FileCog, Router as RouterIcon, Sun, Moon } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -18,33 +19,18 @@ import {
 } from "@/components/ui/popover";
 import { Toast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import "@/styles/animations.css";
 
 function App() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { config, error } = useConfig();
+  const { theme, toggleTheme } = useTheme();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isJsonEditorOpen, setIsJsonEditorOpen] = useState(false);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
-  // 版本检查状态
-  const [isNewVersionAvailable, setIsNewVersionAvailable] = useState(false);
-  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
-  const [newVersionInfo, setNewVersionInfo] = useState<{ version: string; changelog: string } | null>(null);
-  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  const [hasCheckedUpdate, setHasCheckedUpdate] = useState(false);
-  const [isUpdateFeatureAvailable, setIsUpdateFeatureAvailable] = useState(true);
-  const hasAutoCheckedUpdate = useRef(false);
 
   const saveConfig = async () => {
     // Handle case where config might be null or undefined
@@ -78,68 +64,21 @@ function App() {
     }
   };
 
-
-  // 检查更新函数
-  const checkForUpdates = useCallback(async (showDialog: boolean = true) => {
-    // 如果已经检查过且有新版本，根据参数决定是否显示对话框
-    if (hasCheckedUpdate && isNewVersionAvailable) {
-      if (showDialog) {
-        setIsUpdateDialogOpen(true);
-      }
-      return;
-    }
-    
-    setIsCheckingUpdate(true);
-    try {
-      const updateInfo = await api.checkForUpdates();
-      
-      if (updateInfo.hasUpdate && updateInfo.latestVersion && updateInfo.changelog) {
-        setIsNewVersionAvailable(true);
-        setNewVersionInfo({
-          version: updateInfo.latestVersion,
-          changelog: updateInfo.changelog
-        });
-        // 只有在showDialog为true时才显示对话框
-        if (showDialog) {
-          setIsUpdateDialogOpen(true);
-        }
-      } else if (showDialog) {
-        // 只有在showDialog为true时才显示没有更新的提示
-        setToast({ message: t('app.no_updates_available'), type: 'success' });
-      }
-      
-      setHasCheckedUpdate(true);
-    } catch (error) {
-      console.error('Failed to check for updates:', error);
-      setIsUpdateFeatureAvailable(false);
-      if (showDialog) {
-        setToast({ message: t('app.update_check_failed') + ': ' + (error as Error).message, type: 'error' });
-      }
-    } finally {
-      setIsCheckingUpdate(false);
-    }
-  }, [hasCheckedUpdate, isNewVersionAvailable, t]);
-
   useEffect(() => {
     const checkAuth = async () => {
       // If we already have a config, we're authenticated
       if (config) {
         setIsCheckingAuth(false);
-        // 自动检查更新，但不显示对话框
-        if (!hasCheckedUpdate && !hasAutoCheckedUpdate.current) {
-          hasAutoCheckedUpdate.current = true;
-          checkForUpdates(false);
-        }
         return;
       }
-      
+
       // For empty API key, allow access without checking config
       const apiKey = localStorage.getItem('apiKey');
       if (!apiKey) {
         setIsCheckingAuth(false);
         return;
       }
-      
+
       // If we don't have a config, try to fetch it
       try {
         await api.getConfig();
@@ -155,58 +94,32 @@ function App() {
         }
       } finally {
         setIsCheckingAuth(false);
-        // 在获取配置完成后检查更新，但不显示对话框
-        if (!hasCheckedUpdate && !hasAutoCheckedUpdate.current) {
-          hasAutoCheckedUpdate.current = true;
-          checkForUpdates(false);
-        }
       }
     };
 
     checkAuth();
-    
+
     // Listen for unauthorized events
     const handleUnauthorized = () => {
       navigate('/login');
     };
-    
+
     window.addEventListener('unauthorized', handleUnauthorized);
-    
+
     return () => {
       window.removeEventListener('unauthorized', handleUnauthorized);
     };
-  }, [config, navigate, hasCheckedUpdate, checkForUpdates]);
-  
-  // 执行更新函数
-  const performUpdate = async () => {
-    if (!newVersionInfo) return;
-    
-    try {
-      const result = await api.performUpdate();
-      
-      if (result.success) {
-        setToast({ message: t('app.update_successful'), type: 'success' });
-        setIsNewVersionAvailable(false);
-        setIsUpdateDialogOpen(false);
-        setHasCheckedUpdate(false); // 重置检查状态，以便下次重新检查
-      } else {
-        setToast({ message: t('app.update_failed') + ': ' + result.message, type: 'error' });
-      }
-    } catch (error) {
-      console.error('Failed to perform update:', error);
-      setToast({ message: t('app.update_failed') + ': ' + (error as Error).message, type: 'error' });
-    }
-  };
+  }, [config, navigate]);
 
-  
+
   if (isCheckingAuth) {
     return (
-      <div className="h-screen bg-gray-50 font-sans flex items-center justify-center">
+      <div className="h-screen bg-background font-sans flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 shadow-md">
             <RouterIcon className="h-6 w-6 text-white" />
           </div>
-          <div className="text-gray-500">Loading application...</div>
+          <div className="text-muted-foreground">Loading application...</div>
         </div>
       </div>
     );
@@ -214,7 +127,7 @@ function App() {
 
   if (error) {
     return (
-      <div className="h-screen bg-gray-50 font-sans flex items-center justify-center">
+      <div className="h-screen bg-background font-sans flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 shadow-md">
             <RouterIcon className="h-6 w-6 text-white" />
@@ -228,12 +141,12 @@ function App() {
   // Handle case where config is null or undefined
   if (!config) {
     return (
-      <div className="h-screen bg-gray-50 font-sans flex items-center justify-center">
+      <div className="h-screen bg-background font-sans flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 shadow-md">
             <RouterIcon className="h-6 w-6 text-white" />
           </div>
-          <div className="text-gray-500">Loading configuration...</div>
+          <div className="text-muted-foreground">Loading configuration...</div>
         </div>
       </div>
     );
@@ -241,13 +154,13 @@ function App() {
 
   return (
     <TooltipProvider>
-      <div className="h-screen bg-gray-50 font-sans">
-      <header className="flex h-16 items-center justify-between border-b bg-white px-6">
+      <div className="h-screen bg-background font-sans">
+      <header className="flex h-16 items-center justify-between border-b bg-card px-6">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 shadow-sm">
             <RouterIcon className="h-5 w-5 text-white" />
           </div>
-          <h1 className="text-xl font-semibold text-gray-800">{t('app.title')}</h1>
+          <h1 className="text-xl font-semibold text-foreground">{t('app.title')}</h1>
         </div>
         <div className="flex items-center gap-2">
           <Tooltip>
@@ -290,6 +203,21 @@ function App() {
               <p>{t('app.presets')}</p>
             </TooltipContent>
           </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="transition-all-ease hover:scale-110"
+              >
+                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('app.theme_toggle')}</p>
+            </TooltipContent>
+          </Tooltip>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" className="transition-all-ease hover:scale-110">
@@ -315,35 +243,6 @@ function App() {
               </div>
             </PopoverContent>
           </Popover>
-          {/* 更新版本按钮 - 仅当更新功能可用时显示 */}
-          {isUpdateFeatureAvailable && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => checkForUpdates(true)}
-                  disabled={isCheckingUpdate}
-                  className="transition-all-ease hover:scale-110 relative"
-                >
-                  <div className="relative">
-                    <CircleArrowUp className="h-5 w-5" />
-                    {isNewVersionAvailable && !isCheckingUpdate && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></div>
-                    )}
-                  </div>
-                  {isCheckingUpdate && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                    </div>
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t('app.check_updates')}</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
           <Button onClick={saveConfig} className="transition-all-ease hover:scale-[1.02] active:scale-[0.98]">
             <RefreshCw className="mr-2 h-4 w-4" />
             {t('app.save')}
@@ -369,51 +268,11 @@ function App() {
         onOpenChange={setIsJsonEditorOpen} 
         showToast={(message, type) => setToast({ message, type })} 
       />
-      <LogViewer 
-        open={isLogViewerOpen} 
-        onOpenChange={setIsLogViewerOpen} 
-        showToast={(message, type) => setToast({ message, type })} 
+      <LogViewer
+        open={isLogViewerOpen}
+        onOpenChange={setIsLogViewerOpen}
+        showToast={(message, type) => setToast({ message, type })}
       />
-      {/* 版本更新对话框 */}
-      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {t('app.new_version_available')}
-              {newVersionInfo && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  v{newVersionInfo.version}
-                </span>
-              )}
-            </DialogTitle>
-            <DialogDescription>
-              {t('app.update_description')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-96 overflow-y-auto py-4">
-            {newVersionInfo?.changelog ? (
-              <div className="whitespace-pre-wrap text-sm">
-                {newVersionInfo.changelog}
-              </div>
-            ) : (
-              <div className="text-muted-foreground">
-                {t('app.no_changelog_available')}
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsUpdateDialogOpen(false)}
-            >
-              {t('app.later')}
-            </Button>
-            <Button onClick={performUpdate}>
-              {t('app.update_now')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       {toast && (
         <Toast 
           message={toast.message} 

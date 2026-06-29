@@ -1,6 +1,6 @@
 import Server, { calculateTokenCount, TokenizerService } from "@thxp/llms";
 import { readConfigFile, writeConfigFile, backupConfigFile } from "./utils";
-import { join } from "path";
+import { join, resolve } from "path";
 import fastifyStatic from "@fastify/static";
 import { readdirSync, statSync, readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, rmSync } from "fs";
 import { homedir } from "os";
@@ -460,6 +460,48 @@ export const createServer = async (config: any): Promise<any> => {
     }
   });
 
+  // Safely resolve a log file path and validate it's within the logs directory
+  const resolveLogFilePath = (filePath: string): string | null => {
+    const logDir = resolve(homedir(), ".claude-code-router", "logs");
+    const resolved = resolve(logDir, filePath);
+
+    if (!resolved.startsWith(logDir)) {
+      return null;
+    }
+    return resolved;
+  };
+
+  // Delete log file endpoint
+  app.delete("/api/logs/files", async (req: any, reply: any) => {
+    try {
+      const filePath = (req.query as any).file as string;
+
+      if (!filePath) {
+        return reply.status(400).send({ error: "File path is required" });
+      }
+
+      const resolvedPath = resolveLogFilePath(filePath);
+      if (!resolvedPath) {
+        return reply.status(403).send({ error: "Access denied: invalid log file path" });
+      }
+
+      if (!existsSync(resolvedPath)) {
+        return reply.status(404).send({ error: "Log file not found" });
+      }
+
+      if (!resolvedPath.endsWith('.log')) {
+        return reply.status(403).send({ error: "Access denied: not a log file" });
+      }
+
+      unlinkSync(resolvedPath);
+
+      return { success: true, message: "Log file deleted successfully" };
+    } catch (error) {
+      console.error("Failed to delete log file:", error);
+      reply.status(500).send({ error: "Failed to delete log file" });
+    }
+  });
+
   // Get log content endpoint
   app.get("/api/logs", async (req: any, reply: any) => {
     try {
@@ -467,8 +509,14 @@ export const createServer = async (config: any): Promise<any> => {
       let logFilePath: string;
 
       if (filePath) {
-        // If file path is specified, use the specified path
-        logFilePath = filePath;
+        const resolved = resolveLogFilePath(filePath);
+        if (!resolved) {
+          return reply.status(403).send({ error: "Access denied: invalid log file path" });
+        }
+        if (!resolved.endsWith('.log')) {
+          return reply.status(403).send({ error: "Access denied: not a log file" });
+        }
+        logFilePath = resolved;
       } else {
         // If file path is not specified, use default log file path
         logFilePath = join(homedir(), ".claude-code-router", "logs", "app.log");
@@ -495,8 +543,14 @@ export const createServer = async (config: any): Promise<any> => {
       let logFilePath: string;
 
       if (filePath) {
-        // If file path is specified, use the specified path
-        logFilePath = filePath;
+        const resolved = resolveLogFilePath(filePath);
+        if (!resolved) {
+          return reply.status(403).send({ error: "Access denied: invalid log file path" });
+        }
+        if (!resolved.endsWith('.log')) {
+          return reply.status(403).send({ error: "Access denied: not a log file" });
+        }
+        logFilePath = resolved;
       } else {
         // If file path is not specified, use default log file path
         logFilePath = join(homedir(), ".claude-code-router", "logs", "app.log");

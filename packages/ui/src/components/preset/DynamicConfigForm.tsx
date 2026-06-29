@@ -303,7 +303,7 @@ export function DynamicConfigForm({
             </Label>
 
             {prompt && (
-              <p className="text-sm text-gray-600">{prompt}</p>
+              <p className="text-sm text-muted-foreground">{prompt}</p>
             )}
 
             {/* Password / Input */}
@@ -352,7 +352,7 @@ export function DynamicConfigForm({
                       <div>
                         <div>{option.label}</div>
                         {option.description && (
-                          <div className="text-xs text-gray-500">{option.description}</div>
+                          <div className="text-xs text-muted-foreground">{option.description}</div>
                         )}
                       </div>
                     </SelectItem>
@@ -385,7 +385,7 @@ export function DynamicConfigForm({
                     >
                       {option.label}
                       {option.description && (
-                        <span className="text-gray-500 ml-2">{option.description}</span>
+                        <span className="text-muted-foreground ml-2">{option.description}</span>
                       )}
                     </Label>
                   </div>

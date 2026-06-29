@@ -231,19 +231,14 @@ class ApiClient {
     return this.post<void>('/restart', {});
   }
 
-  // Check for updates
-  async checkForUpdates(): Promise<{ hasUpdate: boolean; latestVersion?: string; changelog?: string }> {
-    return this.get<{ hasUpdate: boolean; latestVersion?: string; changelog?: string }>('/update/check');
-  }
-
-  // Perform update
-  async performUpdate(): Promise<{ success: boolean; message: string }> {
-    return this.post<{ success: boolean; message: string }>('/api/update/perform', {});
-  }
-
   // Get log files list
   async getLogFiles(): Promise<Array<{ name: string; path: string; size: number; lastModified: string }>> {
     return this.get<Array<{ name: string; path: string; size: number; lastModified: string }>>('/logs/files');
+  }
+
+  // Delete log file
+  async deleteLogFile(filePath: string): Promise<{ success: boolean; message: string }> {
+    return this.delete<{ success: boolean; message: string }>(`/logs/files?file=${encodeURIComponent(filePath)}`);
   }
 
   // Get logs from specific file

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { Button } from '@/components/ui/button';
 import { useConfig } from '@/components/ConfigProvider';
+import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
 import { X, RefreshCw } from 'lucide-react';
@@ -14,6 +15,7 @@ interface JsonEditorProps {
 
 export function JsonEditor({ open, onOpenChange, showToast }: JsonEditorProps) {
   const { t } = useTranslation();
+  const { theme } = useTheme();
   const { config, setConfig } = useConfig();
   const [jsonValue, setJsonValue] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
@@ -114,7 +116,7 @@ export function JsonEditor({ open, onOpenChange, showToast }: JsonEditorProps) {
       
       <div 
         ref={containerRef}
-        className={`fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-white shadow-2xl transition-all duration-300 ease-out transform ${
+        className={`fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-card shadow-2xl transition-all duration-300 ease-out transform ${
           isAnimating && open ? 'translate-y-0' : 'translate-y-full'
         }`}
         style={{ 
@@ -146,13 +148,13 @@ export function JsonEditor({ open, onOpenChange, showToast }: JsonEditorProps) {
             </div>
         </div>
         
-        <div className="flex-1 min-h-0 bg-gray-50">
+        <div className="flex-1 min-h-0 bg-muted relative">
           <Editor
             height="100%"
             defaultLanguage="json"
             value={jsonValue}
             onChange={(value) => setJsonValue(value || '')}
-            theme="vs"
+            theme={theme === 'dark' ? 'vs-dark' : 'vs'}
             options={{
               minimap: { enabled: true },
               fontSize: 14,

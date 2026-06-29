@@ -14,8 +14,6 @@ import {
 } from "@thxp/shared";
 import { getServer } from "@thxp/server";
 import { writeFileSync, existsSync, readFileSync, mkdirSync } from "fs";
-import { checkForUpdates, performUpdate } from "./update";
-import { version } from "../../package.json";
 import { spawn } from "child_process";
 import {cleanupPidFile, isServiceRunning} from "./processCheck";
 
@@ -193,14 +191,6 @@ export const run = async (args: string[] = []) => {
   const app = server.app;
   // Save the PID of the background process
   writeFileSync(PID_FILE, process.pid.toString());
-
-  app.post('/api/update/perform', async () => {
-    return await performUpdate();
-  })
-
-  app.get('/api/update/check', async () => {
-    return await checkForUpdates(version);
-  })
 
   app.post("/api/restart", async () => {
     setTimeout(async () => {
