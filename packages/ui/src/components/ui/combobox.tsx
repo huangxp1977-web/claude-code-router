@@ -53,7 +53,7 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 transition-transform duration-200 group-data-[state=open]:rotate-180" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 animate-fade-in">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 animate-fade-in" onWheel={(e) => e.stopPropagation()}>
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>

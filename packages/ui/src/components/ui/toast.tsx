@@ -32,11 +32,11 @@ export function Toast({ message, type, onClose }: ToastProps) {
   const getBackgroundColor = () => {
     switch (type) {
       case 'success':
-        return 'bg-green-100 border-green-200';
+        return 'bg-green-100 border-green-200 dark:bg-green-900/50 dark:border-green-800';
       case 'error':
-        return 'bg-red-100 border-red-200';
+        return 'bg-red-100 border-red-200 dark:bg-red-900/50 dark:border-red-800';
       case 'warning':
-        return 'bg-yellow-100 border-yellow-200';
+        return 'bg-yellow-100 border-yellow-200 dark:bg-yellow-900/50 dark:border-yellow-800';
       default:
         return 'bg-accent border-border';
     }
@@ -46,11 +46,11 @@ export function Toast({ message, type, onClose }: ToastProps) {
     <div className={`fixed top-4 right-4 z-[100] flex items-center justify-between p-4 rounded-lg border shadow-lg ${getBackgroundColor()} transition-all duration-300 ease-in-out`}>
       <div className="flex items-center space-x-2">
         {getIcon()}
-        <span className="text-sm font-medium">{message}</span>
+        <span className="text-sm font-medium text-foreground">{message}</span>
       </div>
       <button
         onClick={onClose}
-        className="ml-4 text-muted-foreground hover:text-muted-foreground focus:outline-none"
+        className="ml-4 text-muted-foreground hover:text-foreground focus:outline-none"
       >
         <X className="h-4 w-4" />
       </button>

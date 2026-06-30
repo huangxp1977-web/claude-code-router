@@ -267,7 +267,15 @@ class Server {
         const url = new URL(`http://127.0.0.1${req.url}`);
         if (url.pathname.endsWith("/v1/messages") && req.body) {
           const body = req.body as any;
-          req.log.info({ data: body, type: "request body" });
+          req.log.info({
+            type: "request body",
+            data: {
+              model: body.model,
+              messageCount: body.messages?.length,
+              maxTokens: body.max_tokens,
+              stream: body.stream
+            }
+          });
           if (!body.stream) {
             body.stream = false;
           }

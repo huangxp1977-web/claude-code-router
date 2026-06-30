@@ -124,7 +124,7 @@ async function getServer(options: RunOptions = {}) {
     const LOG_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
     const now = Date.now();
     readdirSync(LOGS_DIR)
-      .filter(f => f.endsWith(".log"))
+      .filter(f => f.endsWith(".log") || f.endsWith(".log.txt"))
       .forEach(f => {
         try {
           const fp = join(LOGS_DIR, f);
