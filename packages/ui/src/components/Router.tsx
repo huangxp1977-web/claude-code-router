@@ -110,15 +110,42 @@ export function Router() {
           />
         </div>
         <div className="space-y-2">
-          <Label>{t("router.webSearch")}</Label>
-          <MultiCombobox
-            options={modelOptions}
-            value={getArrayValue(routerConfig.webSearch)}
-            onChange={(value) => handleRouterChange("webSearch", value)}
-            placeholder={t("router.selectModel")}
-            searchPlaceholder={t("router.searchModel")}
-            emptyPlaceholder={t("router.noModelFound")}
-          />
+            <Label htmlFor="webSearchProvider">{t("router.webSearch")}</Label>
+            <select
+              id="webSearchProvider"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              value={config.WebSearch?.activeProvider || ""}
+              onChange={(e) => {
+                const selectedValue = e.target.value;
+                const webSearch = config.WebSearch || { enabled: false, activeProvider: "", providers: {} };
+
+                if (selectedValue === "") {
+                  setConfig({
+                    ...config,
+                    WebSearch: {
+                      ...webSearch,
+                      enabled: false,
+                      activeProvider: "",
+                    }
+                  });
+                } else {
+                  setConfig({
+                    ...config,
+                    WebSearch: {
+                      ...webSearch,
+                      enabled: true,
+                      activeProvider: selectedValue,
+                    }
+                  });
+                }
+              }}
+            >
+              <option value="" className="bg-background text-foreground">{t("common.disabled")}</option>
+              <option value="duckduckgo" className="bg-background text-foreground">DuckDuckGo</option>
+              {config.WebSearch?.providers?.tavily?.apiKey && (
+                <option value="tavily" className="bg-background text-foreground">Tavily</option>
+              )}
+            </select>
         </div>
         <div className="space-y-2">
           <div className="flex items-center gap-4">

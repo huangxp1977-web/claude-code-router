@@ -1,5 +1,6 @@
-import { imageAgent } from './image.agent'
-import { IAgent } from './type';
+import { imageAgent } from "./image.agent";
+import { searchAgent } from "./search.agent";
+import { IAgent } from "./type";
 
 export class AgentsManager {
     private agents: Map<string, IAgent> = new Map();
@@ -45,4 +46,5 @@ export class AgentsManager {
 
 const agentsManager = new AgentsManager()
 agentsManager.registerAgent(imageAgent)
+agentsManager.registerAgent(searchAgent)
 export default agentsManager

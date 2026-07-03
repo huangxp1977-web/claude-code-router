@@ -1,7 +1,8 @@
 {
   "common": {
     "yes": "Yes",
-    "no": "No"
+        "no": "No",
+        "disabled": "Disabled"
   },
   "app": {
     "title": "Claude Code Router",
@@ -44,7 +45,13 @@
     "timeout": "API Timeout (ms)",
     "proxy_url": "Proxy URL",
     "custom_router_path": "Custom Router Script Path",
-    "custom_router_path_placeholder": "Enter absolute path to custom router script file"
+    "custom_router_path_placeholder": "Enter absolute path to custom router script file",
+    "search_providers": "Search Providers",
+    "search_providers_description": "Configure search providers. Select one to use as the active search provider.",
+    "duckduckgo_description": "Free, no API key required",
+    "tavily_description": "Paid, requires API key",
+        "always_available": "Always Available",
+        "selected": "Selected"
   },
   "transformers": {
     "title": "Custom Transformers",
@@ -119,7 +126,11 @@
     "forceUseImageAgent": "Force Use Image Agent",
     "selectModel": "Select a model...",
     "searchModel": "Search model...",
-    "noModelFound": "No model found."
+    "noModelFound": "No model found.",
+    "current_search_provider": "Current Search Provider",
+    "configured_in_settings": "Configured in Settings",
+    "web_search_disabled": "Web Search is disabled. Enable it in Settings.",
+    "no_search_provider": "No search provider configured"
   },
   "json_editor": {
     "title": "JSON Editor",

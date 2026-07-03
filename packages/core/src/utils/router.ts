@@ -247,19 +247,6 @@ const getUseModel = async (
       return { model, scenarioType: 'background' };
     }
   }
-  // The priority of websearch must be higher than thinking.
-  // Check if tools array has a web_search tool definition (CC initiating a search)
-  const tools = Array.isArray(req.body.tools) ? req.body.tools : [];
-  const hasWebSearchToolDef = tools.some((tool: any) => {
-    return tool.type && tool.type.includes('web_search');
-  });
-
-  if (hasWebSearchToolDef && Router?.webSearch) {
-    const model = getValidModel(Router.webSearch);
-    if (model) {
-      return { model, scenarioType: 'webSearch' };
-    }
-  }
   // if exits thinking, use the think model
   // Check if thinking has actual content (not empty object or empty string)
   const hasThinking = req.body.thinking === true ||
@@ -362,11 +349,11 @@ export const router = async (req: any, _res: any, context: RouterContext) => {
     }
 
     let model;
+    req.tokenCount = tokenCount; // Save token count for usage tracking
     const customRouterPath = configService.get("CUSTOM_ROUTER_PATH");
     if (customRouterPath) {
       try {
         const customRouter = require(customRouterPath);
-        req.tokenCount = tokenCount; // Pass token count to custom router
         model = await customRouter(req, configService.getAll(), {
           event,
         });

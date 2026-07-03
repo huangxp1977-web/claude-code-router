@@ -104,6 +104,14 @@ export interface ProviderConfig {
   [key: string]: any;
 }
 
+// WebSearch configuration
+export interface WebSearchConfig {
+  enabled: boolean;
+  activeProvider: string;
+  providers: Record<string, Record<string, string>>;
+  resultLimit?: number;
+}
+
 // Router configuration
 export interface RouterConfig {
   default?: string | string[];
@@ -145,6 +153,7 @@ export interface PresetConfigSection {
   transformers?: TransformerConfig[];
   StatusLine?: any;
   NON_INTERACTIVE_MODE?: boolean;
+  WebSearch?: WebSearchConfig;
 
   // CLI-only fields (not used by server)
   noServer?: boolean;                // CLI: Whether to skip local server startup and use provider's API directly

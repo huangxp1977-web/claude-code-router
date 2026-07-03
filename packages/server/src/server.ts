@@ -91,12 +91,12 @@ export const createServer = async (config: any): Promise<any> => {
     const transformers =
       (app as any)._server!.transformerService.getAllTransformers();
     const transformerList = Array.from(transformers.entries()).map(
-      ([name, transformer]: any) => ({
-        name,
-        endpoint: transformer.endPoint || null,
-      })
-    );
-    return { transformers: transformerList };
+          ([name, transformer]: any) => ({
+            name,
+            endpoint: transformer.endPoint || null,
+          })
+        ).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+        return { transformers: transformerList };
   });
 
   // Add endpoint to save config.json with access control

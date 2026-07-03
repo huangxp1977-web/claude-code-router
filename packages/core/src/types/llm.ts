@@ -64,6 +64,7 @@ export interface UnifiedMessage {
     content: string;
     signature?: string;
   };
+  reasoning_content?: string;
 }
 
 // 统一的工具定义接口

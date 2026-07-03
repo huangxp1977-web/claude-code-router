@@ -1,7 +1,8 @@
 {
   "common": {
     "yes": "是",
-    "no": "否"
+        "no": "否",
+        "disabled": "禁用"
   },
   "app": {
     "title": "Claude Code Router",
@@ -44,7 +45,13 @@
     "timeout": "API 超时时间 (毫秒)",
     "proxy_url": "代理地址",
     "custom_router_path": "自定义路由脚本路径",
-    "custom_router_path_placeholder": "输入自定义路由脚本文件的绝对路径"
+    "custom_router_path_placeholder": "输入自定义路由脚本文件的绝对路径",
+    "search_providers": "搜索供应商",
+    "search_providers_description": "配置搜索供应商。选择一个作为当前活跃的搜索供应商。",
+    "duckduckgo_description": "免费，无需 API 密钥",
+    "tavily_description": "付费，需要 API 密钥",
+        "always_available": "始终可用",
+        "selected": "已选"
   },
   "transformers": {
     "title": "自定义转换器",
@@ -119,7 +126,11 @@
     "forceUseImageAgent": "强制使用图像代理",
     "selectModel": "选择一个模型...",
     "searchModel": "搜索模型...",
-    "noModelFound": "未找到模型."
+    "noModelFound": "未找到模型。",
+    "current_search_provider": "当前搜索供应商",
+    "configured_in_settings": "在设置中配置",
+    "web_search_disabled": "网络搜索已禁用。请在设置中启用。",
+    "no_search_provider": "未配置搜索供应商"
   },
   "json_editor": {
     "title": "JSON 编辑器",

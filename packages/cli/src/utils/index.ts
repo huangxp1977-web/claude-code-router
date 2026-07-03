@@ -106,6 +106,14 @@ export const readConfigFile = async () => {
           PORT: 3456,
           Providers: [],
           Router: {},
+          WebSearch: {
+            enabled: true,
+            activeProvider: "duckduckgo",
+            providers: {
+              duckduckgo: {},
+              tavily: {}
+            }
+          }
         }
         // Create a minimal default config file
         await writeConfigFile(config);

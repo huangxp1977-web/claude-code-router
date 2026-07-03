@@ -396,7 +396,8 @@ async function getServer(options: RunOptions = {}) {
         const read = async (stream: ReadableStream) => {
           const reader = stream.getReader();
           let buffer = "";
-          try {
+                    let accumulatedText = ""; // Track accumulated output text for fallback usage estimation
+                    try {
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
@@ -409,6 +410,9 @@ async function getServer(options: RunOptions = {}) {
                 if (trimmed.startsWith("data:")) {
                   try {
                     const message = JSON.parse(trimmed.slice(5).trim());
+                    if (message.type === "content_block_delta" && message.delta?.text) {
+                      accumulatedText += message.delta.text;
+                    }
                     if (message.type === "message_delta" && message.usage) {
                       sessionUsageCache.put(req.sessionId, message.usage);
                       if (req.provider && req.body?.model && !(req as any)._usageRecorded) {
@@ -418,6 +422,16 @@ async function getServer(options: RunOptions = {}) {
                     }
                   } catch {}
                 }
+              }
+            }
+            // Fallback: estimate usage if provider didn't return usage data in stream
+            if (req.provider && req.body?.model && !(req as any)._usageRecorded) {
+              const inputTokens = (req as any).tokenCount || 0;
+              const outputTokens = Math.ceil(accumulatedText.length * 0.8);
+              const totalTokens = inputTokens + outputTokens;
+              if (totalTokens > 0) {
+                recordModelUsage(req.provider, req.body.model, totalTokens);
+                (req as any)._usageRecorded = true;
               }
             }
           } catch (readError: any) {

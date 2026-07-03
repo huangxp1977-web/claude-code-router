@@ -155,9 +155,15 @@ export class ConfigService {
   }
 
   public reload(): void {
-    this.config = {};
-    this.loadConfig();
-  }
+      this.config = {};
+      if (this.options.initialConfig) {
+        delete this.options.initialConfig.providers;
+        delete this.options.initialConfig.Providers;
+        delete this.options.initialConfig.Router;
+        delete this.options.initialConfig.WebSearch;
+      }
+      this.loadConfig();
+    }
 
   public getConfigSummary(): string {
     const summary: string[] = [];

@@ -32,8 +32,8 @@ pnpm build:core     # Build core llms package
 pnpm dev:cli        # Develop CLI (ts-node)
 pnpm dev:server     # Develop Server (ts-node)
 pnpm dev:ui         # Develop UI (Vite)
-pnpm dev:shared     # Develop Shared (ts-node)
 pnpm dev:core       # Develop Core (ts-node)
+pnpm dev:docs       # Develop Docs site
 ```
 
 ### Release
@@ -52,11 +52,10 @@ The routing logic determines which model a request should be sent to:
 - **Default routing**: Uses `Router.default` configuration
 - **Project-level routing**: Checks `~/.claude/projects/<project-id>/claude-code-router.json`
 - **Custom routing**: Loads custom JavaScript router function via `CUSTOM_ROUTER_PATH`
-- **Built-in scenario routing** (priority: background > webSearch > think > default):
+- **Built-in scenario routing** (priority: background > think > default):
   - `background`: Background tasks / lightweight classifier requests (e.g., Claude Code's haiku safety classifier)
-  - `webSearch`: Web search tasks (detected by `tool_use` blocks with WebSearch name in message history)
   - `think`: Thinking-intensive tasks (detected by `thinking.type === 'enabled'`)
-  - `image`: Image-related tasks
+  - Note: `webSearch` and `image` scenarios are defined in configuration types but not implemented in routing logic. Web search is handled by SearchAgent (agent system) instead.
 
 Token calculation uses `tiktoken` (cl100k_base) to estimate request size.
 
@@ -82,13 +81,16 @@ Transformer configuration supports:
 
 ### 3. Agent System (packages/server/src/agents/)
 
-Agents are pluggable feature modules that can:
+Agents are pluggable feature modules managed by `AgentsManager` class. They can:
 - Detect whether to handle a request (`shouldHandle`)
 - Modify requests (`reqHandler`)
 - Provide custom tools (`tools`)
 
+**AgentsManager methods**: `registerAgent()`, `getAgent()`, `getAllAgents()`, `getAllTools()`
+
 Built-in agents:
 - **imageAgent**: Handles image-related tasks
+- **searchAgent**: Handles web search tasks using DuckDuckGo (free), Tavily, or Brave Search
 
 Agent tool call flow:
 1. Detect and mark agents in `preHandler` hook
@@ -118,7 +120,7 @@ Key features:
 - Supports environment variable interpolation (`$VAR_NAME` or `${VAR_NAME}`)
 - JSON5 format (supports comments)
 - Automatic backups (keeps last 3 backups)
-- Hot reload requires service restart (`ccr restart`)
+- **Zero-downtime hot reload**: Saving config via UI `/api/config` endpoint triggers `configService.reload()`, `transformerService.reload()`, and `providerService.reload()` without full service restart
 
 Configuration validation:
 - If `Providers` are configured, both `HOST` and `APIKEY` must be set
@@ -137,6 +139,34 @@ Two separate logging systems:
 - Location: `~/.claude-code-router/claude-code-router.log`
 - Content: Routing decisions, business logic events
 
+### 8. Plugin System
+
+CCR supports configurable plugins for extensibility:
+- Config format: `plugins` or `Plugins` array with `{name, enabled, options}`
+- Built-in plugins: `token-speed` (token speed tracking)
+- Plugins are registered via `registerPluginsFromConfig()` function
+- Plugin manager imported from `@thxp/llms`
+
+### 9. WebSearch Configuration
+
+Web search is a top-level configuration feature:
+```json
+{
+  "WebSearch": {
+    "enabled": true,
+    "activeProvider": "duckduckgo",
+    "providers": {
+      "duckduckgo": {},
+      "tavily": { "apiKey": "..." },
+      "brave": { "apiKey": "..." }
+    }
+  }
+}
+```
+- DuckDuckGo: Free, no API key required
+- Tavily/Brave: Paid, requires API key
+- Web search is handled by `SearchAgent`, not router scenario routing
+
 ## CLI Commands
 
 ```bash
@@ -147,9 +177,12 @@ ccr status     # Show status
 ccr code       # Execute claude command
 ccr model      # Interactive model selection and configuration
 ccr preset     # Manage presets (export, install, list, info, delete)
+ccr install    # Install preset from GitHub marketplace
 ccr activate   # Output shell environment variables (for integration)
+ccr env        # Alias for activate
 ccr ui         # Open Web UI
 ccr statusline # Integrated statusline (reads JSON from stdin)
+ccr <preset>   # Run with preset configuration (e.g., ccr my-preset "prompt")
 ```
 
 ### Preset Commands
@@ -160,6 +193,7 @@ ccr preset install <source>   # Install a preset from file, URL, or name
 ccr preset list               # List all installed presets
 ccr preset info <name>        # Show preset information
 ccr preset delete <name>      # Delete a preset
+ccr install <preset-name>     # Install preset from GitHub marketplace
 ```
 
 ## Subagent Routing
@@ -172,7 +206,7 @@ Please help me analyze this code...
 
 ## Preset System
 
-The preset system allows users to save, share, and reuse configurations easily.
+The preset system allows users to save, share, and reuse configurations easily. Presets can be installed from local files, URLs, or the GitHub marketplace.
 
 ### Preset Structure
 
@@ -183,6 +217,31 @@ Each preset contains:
 - **Configuration**: Providers, Router, transformers, and other settings
 - **Dynamic Schema** (optional): Input fields for collecting required information during installation
 - **Required Inputs** (optional): Fields that need to be filled during installation (e.g., API keys)
+
+### Dynamic Configuration System
+
+The preset system supports complex dynamic configuration schemas:
+
+**Input types**: `password`, `input`, `select`, `multiselect`, `confirm`, `editor`, `number`
+
+**Dynamic options**: Options can be sourced from:
+- Static array
+- Providers list (auto-extract from preset's Providers)
+- Models list (from specified provider)
+- Custom source (reserved)
+
+**Conditional fields**: Show fields only when conditions are met using `when` property with operators: `eq`, `ne`, `in`, `nin`, `gt`, `lt`, `gte`, `lte`, `exists`
+
+**Variable interpolation**: Use `#{fieldId}` syntax in templates and config mappings
+
+**Config mappings**: Map user input values to specific configuration locations with conditions
+
+### Marketplace Integration
+
+Presets can be installed from GitHub marketplace:
+- `ccr install <preset-name>` - Downloads and installs preset from marketplace
+- `marketplace.ts` - Fetches presets from remote registry URL
+- `install-github.ts` - GitHub-specific installation logic
 
 ### Core Functions
 
@@ -205,6 +264,17 @@ Located in `packages/shared/src/preset/`:
 - **sensitiveFields.ts**: Identify and sanitize sensitive fields
   - Detects api_key, password, secret fields automatically
   - Replaces sensitive values with environment variable placeholders
+
+- **schema.ts**: Dynamic configuration input handling
+  - Complex input types (password, select, multiselect, editor, etc.)
+  - Conditional field display with `when` conditions
+  - Dynamic option sources (providers, models)
+  - Variable interpolation
+
+- **types.ts**: Type definitions
+  - `RequiredInput`, `InputType`, `Condition`, `DynamicOptions`
+  - `TemplateConfig`, `ConfigMapping`, `PresetIndexEntry`, `PresetRegistry`
+  - `WebSearchConfig`
 
 ### Preset File Format
 
@@ -240,6 +310,8 @@ Key files:
 - `commands.ts`: Command handlers for `ccr preset` subcommands
 - `export.ts`: CLI wrapper for export functionality
 - `install.ts`: CLI wrapper for install functionality
+- `install-github.ts`: GitHub marketplace installation
+- `schema-input.ts`: Dynamic schema input handling
 
 ## Dependencies
 

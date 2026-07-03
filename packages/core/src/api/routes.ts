@@ -233,17 +233,19 @@ async function getFallbackModel(req: FastifyRequest, fastify: FastifyInstance, e
     return null;
   }
 
-  const nextModelSpec = modelsToTry[0];
-  const [targetProviderName, targetModelName] = nextModelSpec.split(",");
-  
-  const targetProvider = providerService.getProvider(targetProviderName);
-  if (!targetProvider) return null;
+  for (const nextModelSpec of modelsToTry) {
+    const [targetProviderName, targetModelName] = nextModelSpec.split(",");
+    const targetProvider = providerService.getProvider(targetProviderName);
+    if (targetProvider) {
+      return {
+        provider: targetProvider,
+        modelName: targetModelName,
+        transformerConfig: null // Caller reuses current transformer
+      };
+    }
+  }
 
-  return {
-    provider: targetProvider,
-    modelName: targetModelName,
-    transformerConfig: null // Caller reuses current transformer
-  };
+  return null;
 }
 
 /**

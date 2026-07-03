@@ -1,6 +1,6 @@
 {
   "name": "@thxp/claude-code-router",
-  "version": "3.2.22",
+  "version": "3.2.24",
   "description": "CLI for Claude Code Router",
   "bin": {
     "ccr": "dist/cli.js"

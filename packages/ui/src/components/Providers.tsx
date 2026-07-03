@@ -1277,7 +1277,7 @@ export function Providers() {
                   <div className="space-y-3">
                     {(editingProvider.models || []).map((model: string, modelIndex: number) => (
                       <div key={modelIndex} className="border border-border bg-muted/50 rounded-lg p-4 mb-4 shadow-sm">
-                        <div className="font-medium text-sm mb-2 text-slate-800">{model}</div>
+                        <div className="font-medium text-sm mb-2 text-slate-800 dark:text-slate-200">{model}</div>
                         {/* Add new transformer */}
                         <div className="flex gap-2">
                           <div className="flex-1 flex gap-2">

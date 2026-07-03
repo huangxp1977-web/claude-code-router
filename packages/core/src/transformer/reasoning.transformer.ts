@@ -27,6 +27,17 @@ export class ReasoningTransformer implements Transformer {
       };
       request.enable_thinking = true;
     }
+
+    // Transform assistant messages in conversation history
+    if (request.messages) {
+      for (const message of request.messages) {
+        if (message.role === "assistant" && message.thinking?.content) {
+          message.reasoning_content = message.thinking.content;
+          delete message.thinking;
+        }
+      }
+    }
+
     return request;
   }
 

@@ -54,6 +54,7 @@ export interface Config {
   transformers: Transformer[];
   StatusLine?: StatusLineConfig;
   forceUseImageAgent?: boolean;
+  WebSearch?: WebSearchConfig;
   // Top-level settings
   LOG: boolean;
   LOG_LEVEL: string;
@@ -64,6 +65,13 @@ export interface Config {
   API_TIMEOUT_MS: string;
   PROXY_URL: string;
   CUSTOM_ROUTER_PATH?: string;
+}
+
+export interface WebSearchConfig {
+  enabled: boolean;
+  activeProvider: string;
+  providers: Record<string, Record<string, string>>;
+  resultLimit?: number;
 }
 
 export type AccessLevel = 'restricted' | 'full';
