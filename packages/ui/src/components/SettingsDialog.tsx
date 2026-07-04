@@ -229,115 +229,113 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
           </div>
           {/* WebSearch Configuration */}
           <div className="space-y-4 border-t pt-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="websearch-enable">{t("toplevel.search_providers")}</Label>
-                <p className="text-xs text-muted-foreground">{t("toplevel.search_providers_description")}</p>
+            <div className="space-y-0.5">
+              <Label>{t("toplevel.search_providers")}</Label>
+              <p className="text-xs text-muted-foreground">{t("toplevel.search_providers_description")}</p>
+            </div>
+
+            <div className="space-y-3">
+              {/* DuckDuckGo Card */}
+              <div
+                onClick={() => {
+                  const webSearch = config.WebSearch || { enabled: true, activeProvider: "duckduckgo", providers: {} };
+                  setConfig({
+                    ...config,
+                    WebSearch: { ...webSearch, enabled: true, activeProvider: "duckduckgo" }
+                  });
+                }}
+                className={`flex items-center justify-between rounded-lg border p-3 cursor-pointer transition-all ${
+                  (config.WebSearch?.activeProvider || "duckduckgo") === "duckduckgo"
+                    ? "border-primary bg-primary/5 ring-1 ring-primary"
+                    : "hover:bg-accent/50"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-bold">DDG</div>
+                  <div>
+                    <p className="text-sm font-medium">DuckDuckGo</p>
+                    <p className="text-xs text-muted-foreground">{t("toplevel.duckduckgo_description")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {(config.WebSearch?.activeProvider || "duckduckgo") === "duckduckgo" ? (
+                    <span className="text-xs text-primary font-medium">✓ {t("toplevel.always_available")}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{t("toplevel.always_available")}</span>
+                  )}
+                </div>
               </div>
-              <Switch
-                id="websearch-enable"
-                checked={config.WebSearch?.enabled || false}
-                onCheckedChange={(checked) => {
-                  const webSearch = config.WebSearch || { enabled: false, activeProvider: "", providers: {} };
+
+              {/* Tavily Card */}
+              <div
+                onClick={() => {
+                  const webSearch = config.WebSearch || { enabled: true, activeProvider: "duckduckgo", providers: {} };
+                  const isAlreadyActive = webSearch.activeProvider === "tavily";
                   setConfig({
                     ...config,
                     WebSearch: {
                       ...webSearch,
-                      enabled: checked,
-                      activeProvider: checked ? (webSearch.activeProvider || "duckduckgo") : "",
+                      enabled: true,
+                      activeProvider: isAlreadyActive ? "duckduckgo" : "tavily"
                     }
                   });
                 }}
-              />
-            </div>
-
-            {config.WebSearch?.enabled && (
-              <div className="space-y-3">
-                {/* DuckDuckGo Card */}
-                <div
-                  onClick={() => {
-                    const webSearch = config.WebSearch!;
-                    setConfig({
-                      ...config,
-                      WebSearch: { ...webSearch, activeProvider: "duckduckgo" }
-                    });
-                  }}
-                  className={`flex items-center justify-between rounded-lg border p-3 cursor-pointer transition-all ${
-                    config.WebSearch?.activeProvider === "duckduckgo"
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "hover:bg-accent/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-bold">DDG</div>
-                    <div>
-                      <p className="text-sm font-medium">DuckDuckGo</p>
-                      <p className="text-xs text-muted-foreground">{t("toplevel.duckduckgo_description")}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {config.WebSearch?.activeProvider === "duckduckgo" ? (
-                      <span className="text-xs text-primary font-medium">✓ {t("toplevel.always_available")}</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">{t("toplevel.always_available")}</span>
-                    )}
+                className={`flex items-center justify-between rounded-lg border p-3 cursor-pointer transition-all ${
+                  config.WebSearch?.activeProvider === "tavily"
+                    ? "border-primary bg-primary/5 ring-1 ring-primary"
+                    : "hover:bg-accent/50"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">TV</div>
+                  <div>
+                    <p className="text-sm font-medium">Tavily</p>
+                    <p className="text-xs text-muted-foreground">{t("toplevel.tavily_description")}</p>
                   </div>
                 </div>
-
-                {/* Tavily Card */}
-                <div
-                  onClick={() => {
-                    const webSearch = config.WebSearch!;
-                    setConfig({
-                      ...config,
-                      WebSearch: { ...webSearch, activeProvider: "tavily" }
-                    });
-                  }}
-                  className={`flex items-center justify-between rounded-lg border p-3 cursor-pointer transition-all ${
-                    config.WebSearch?.activeProvider === "tavily"
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "hover:bg-accent/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">TV</div>
-                    <div>
-                      <p className="text-sm font-medium">Tavily</p>
-                      <p className="text-xs text-muted-foreground">{t("toplevel.tavily_description")}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {config.WebSearch?.activeProvider === "tavily" && (
-                      <span className="text-xs text-primary font-medium">✓ {t("toplevel.selected")}</span>
-                    )}
-                  </div>
+                <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
+                  <Switch
+                    id="tavily-enable"
+                    checked={config.WebSearch?.activeProvider === "tavily"}
+                    onCheckedChange={(checked) => {
+                      const webSearch = config.WebSearch || { enabled: true, activeProvider: "duckduckgo", providers: {} };
+                      setConfig({
+                        ...config,
+                        WebSearch: {
+                          ...webSearch,
+                          enabled: true,
+                          activeProvider: checked ? "tavily" : "duckduckgo"
+                        }
+                      });
+                    }}
+                  />
                 </div>
-
-                {/* Tavily API Key - only shown when Tavily is active */}
-                {config.WebSearch?.activeProvider === "tavily" && (
-                  <div className="ml-11 space-y-2">
-                    <Input
-                      placeholder="Tavily API Key"
-                      value={config.WebSearch?.providers?.tavily?.apiKey || ""}
-                      onChange={(e) => {
-                        const webSearch = config.WebSearch || { enabled: true, activeProvider: "tavily", providers: {} };
-                        setConfig({
-                          ...config,
-                          WebSearch: {
-                            ...webSearch,
-                            providers: {
-                              ...webSearch.providers,
-                              tavily: { apiKey: e.target.value }
-                            }
-                          }
-                        });
-                      }}
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                )}
               </div>
-            )}
+
+              {/* Tavily API Key - only shown when Tavily is active */}
+              {config.WebSearch?.activeProvider === "tavily" && (
+                <div className="ml-11 space-y-2">
+                  <Input
+                    placeholder="Tavily API Key"
+                    value={config.WebSearch?.providers?.tavily?.apiKey || ""}
+                    onChange={(e) => {
+                      const webSearch = config.WebSearch || { enabled: true, activeProvider: "tavily", providers: {} };
+                      setConfig({
+                        ...config,
+                        WebSearch: {
+                          ...webSearch,
+                          providers: {
+                            ...webSearch.providers,
+                            tavily: { apiKey: e.target.value }
+                          }
+                        }
+                      });
+                    }}
+                    className="h-8 text-sm"
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <DialogFooter className="p-4 pt-0">

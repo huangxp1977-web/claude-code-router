@@ -459,6 +459,72 @@ export class AnthropicTransformer implements Transformer {
           }
         };
 
+        let inKimiToolCallSection = false;
+        let kimiContentBuffer = "";
+
+        const enqueueText = (text: string) => {
+          if (!text || isClosed || hasFinished) return;
+
+          // Close any previous content block if open and it's not a text content block
+          if (currentContentBlockIndex >= 0) {
+            // Check if current content block is text type
+            const isCurrentTextBlock = hasTextContentStarted;
+            if (!isCurrentTextBlock) {
+              const contentBlockStop = {
+                type: "content_block_stop",
+                index: currentContentBlockIndex,
+              };
+              safeEnqueue(
+                encoder.encode(
+                  `event: content_block_stop\ndata: ${JSON.stringify(
+                    contentBlockStop
+                  )}\n\n`
+                )
+              );
+              currentContentBlockIndex = -1;
+            }
+          }
+
+          if (!hasTextContentStarted && !hasFinished) {
+            hasTextContentStarted = true;
+            const textBlockIndex = assignContentBlockIndex();
+            const contentBlockStart = {
+              type: "content_block_start",
+              index: textBlockIndex,
+              content_block: {
+                type: "text",
+                text: "",
+              },
+            };
+            safeEnqueue(
+              encoder.encode(
+                `event: content_block_start\ndata: ${JSON.stringify(
+                  contentBlockStart
+                )}\n\n`
+              )
+            );
+            currentContentBlockIndex = textBlockIndex;
+          }
+
+          if (!isClosed && !hasFinished) {
+            const anthropicChunk = {
+              type: "content_block_delta",
+              index: currentContentBlockIndex, // Use current content block index
+              delta: {
+                type: "text_delta",
+                text: text,
+              },
+            };
+            safeEnqueue(
+              encoder.encode(
+                `event: content_block_delta\ndata: ${JSON.stringify(
+                  anthropicChunk
+                )}\n\n`
+              )
+            );
+          }
+        };
+
         const safeClose = () => {
           if (!isClosed) {
             try {
@@ -749,63 +815,86 @@ export class AnthropicTransformer implements Transformer {
                 if (choice?.delta?.content && !isClosed && !hasFinished) {
                   contentChunks++;
 
-                  // Close any previous content block if open and it's not a text content block
-                  if (currentContentBlockIndex >= 0) {
-                    // Check if current content block is text type
-                    const isCurrentTextBlock = hasTextContentStarted;
-                    if (!isCurrentTextBlock) {
-                      const contentBlockStop = {
-                        type: "content_block_stop",
-                        index: currentContentBlockIndex,
-                      };
-                      safeEnqueue(
-                        encoder.encode(
-                          `event: content_block_stop\ndata: ${JSON.stringify(
-                            contentBlockStop
-                          )}\n\n`
-                        )
-                      );
-                      currentContentBlockIndex = -1;
+                  kimiContentBuffer += choice.delta.content;
+                  let outputText = "";
+
+                  while (kimiContentBuffer.length > 0) {
+                    if (!inKimiToolCallSection) {
+                      const tokens = [
+                        "<|tool_calls_section_begin|>",
+                        "<|tool_call_begin|>",
+                        "<|tool_calls_section_end|>",
+                        "<|tool_call_end|>"
+                      ];
+                      let firstIdx = Infinity;
+                      let matchedToken = "";
+
+                      for (const token of tokens) {
+                        const idx = kimiContentBuffer.indexOf(token);
+                        if (idx >= 0 && idx < firstIdx) {
+                          firstIdx = idx;
+                          matchedToken = token;
+                        }
+                      }
+
+                      if (firstIdx !== Infinity) {
+                        outputText += kimiContentBuffer.substring(0, firstIdx);
+                        if (matchedToken === "<|tool_calls_section_begin|>" || matchedToken === "<|tool_call_begin|>") {
+                          inKimiToolCallSection = true;
+                        }
+                        kimiContentBuffer = kimiContentBuffer.substring(firstIdx + matchedToken.length);
+                      } else {
+                        // Check if the end of the buffer matches a prefix of any of the 4 tokens
+                        let safeLength = kimiContentBuffer.length;
+                        for (const token of tokens) {
+                          for (let i = 1; i < token.length; i++) {
+                            if (kimiContentBuffer.endsWith(token.substring(0, i))) {
+                              safeLength = Math.min(safeLength, kimiContentBuffer.length - i);
+                              break;
+                            }
+                          }
+                        }
+                        outputText += kimiContentBuffer.substring(0, safeLength);
+                        kimiContentBuffer = kimiContentBuffer.substring(safeLength);
+                        break;
+                      }
+                    } else {
+                      const endTokens = [
+                        "<|tool_calls_section_end|>",
+                        "<|tool_call_end|>"
+                      ];
+                      let firstIdx = Infinity;
+                      let matchedToken = "";
+
+                      for (const token of endTokens) {
+                        const idx = kimiContentBuffer.indexOf(token);
+                        if (idx >= 0 && idx < firstIdx) {
+                          firstIdx = idx;
+                          matchedToken = token;
+                        }
+                      }
+
+                      if (firstIdx !== Infinity) {
+                        inKimiToolCallSection = false;
+                        kimiContentBuffer = kimiContentBuffer.substring(firstIdx + matchedToken.length);
+                      } else {
+                        // Keep only the suffix that might be a prefix of any of the end tokens
+                        let keepLength = 0;
+                        for (const token of endTokens) {
+                          for (let i = 1; i < token.length; i++) {
+                            if (kimiContentBuffer.endsWith(token.substring(0, i))) {
+                              keepLength = Math.max(keepLength, i);
+                            }
+                          }
+                        }
+                        kimiContentBuffer = kimiContentBuffer.substring(kimiContentBuffer.length - keepLength);
+                        break;
+                      }
                     }
                   }
 
-                  if (!hasTextContentStarted && !hasFinished) {
-                    hasTextContentStarted = true;
-                    const textBlockIndex = assignContentBlockIndex();
-                    const contentBlockStart = {
-                      type: "content_block_start",
-                      index: textBlockIndex,
-                      content_block: {
-                        type: "text",
-                        text: "",
-                      },
-                    };
-                    safeEnqueue(
-                      encoder.encode(
-                        `event: content_block_start\ndata: ${JSON.stringify(
-                          contentBlockStart
-                        )}\n\n`
-                      )
-                    );
-                    currentContentBlockIndex = textBlockIndex;
-                  }
-
-                  if (!isClosed && !hasFinished) {
-                    const anthropicChunk = {
-                      type: "content_block_delta",
-                      index: currentContentBlockIndex, // Use current content block index
-                      delta: {
-                        type: "text_delta",
-                        text: choice.delta.content,
-                      },
-                    };
-                    safeEnqueue(
-                      encoder.encode(
-                        `event: content_block_delta\ndata: ${JSON.stringify(
-                          anthropicChunk
-                        )}\n\n`
-                      )
-                    );
+                  if (outputText) {
+                    enqueueText(outputText);
                   }
                 }
 
@@ -1013,6 +1102,11 @@ export class AnthropicTransformer implements Transformer {
                 }
 
                 if (choice?.finish_reason && !isClosed && !hasFinished) {
+                  if (!inKimiToolCallSection && kimiContentBuffer.length > 0) {
+                    enqueueText(kimiContentBuffer);
+                    kimiContentBuffer = "";
+                  }
+
                   if (contentChunks === 0 && toolCallChunks === 0) {
                     console.error(
                       "Warning: No content in the stream response!"
@@ -1082,6 +1176,10 @@ export class AnthropicTransformer implements Transformer {
                 );
               }
             }
+          }
+          if (!inKimiToolCallSection && kimiContentBuffer.length > 0) {
+            enqueueText(kimiContentBuffer);
+            kimiContentBuffer = "";
           }
           safeClose();
         } catch (error) {

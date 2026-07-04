@@ -1,6 +1,6 @@
 {
   "name": "@thxp/shared",
-  "version": "3.2.24",
+  "version": "3.2.25",
   "description": "Shared utilities and constants for Claude Code Router",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

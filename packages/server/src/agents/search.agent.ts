@@ -9,16 +9,6 @@ interface SearchResult {
 
 async function searchDuckDuckGo(query: string, limit: number = 5): Promise<any> {
   try {
-    // Temporarily clear proxy env vars for DuckDuckGo direct access
-    const origHttpsProxy = process.env.HTTPS_PROXY;
-    const origHttpsProxyLower = process.env.https_proxy;
-    const origHttpProxy = process.env.HTTP_PROXY;
-    const origHttpProxyLower = process.env.http_proxy;
-    delete process.env.HTTPS_PROXY;
-    delete process.env.https_proxy;
-    delete process.env.HTTP_PROXY;
-    delete process.env.http_proxy;
-
     const response = await fetch(
       `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
       {

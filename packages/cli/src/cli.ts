@@ -96,6 +96,35 @@ async function waitForService(
   return false;
 }
 
+async function runCodeCommand(args: string[]) {
+  if (!isServiceRunning()) {
+    console.log("Service not running, starting service...");
+    const cliPath = join(__dirname, "cli.js");
+    const startProcess = spawn("node", [cliPath, "start"], {
+      detached: true,
+      stdio: "ignore",
+    });
+
+    startProcess.on("error", (error) => {
+      console.error("Failed to start service:", error.message);
+      process.exit(1);
+    });
+
+    startProcess.unref();
+
+    if (await waitForService()) {
+      await executeCodeCommand(args);
+    } else {
+      console.error(
+        "Service startup timeout, please manually run `ccr start` to start the service"
+      );
+      process.exit(1);
+    }
+  } else {
+    await executeCodeCommand(args);
+  }
+}
+
 async function main() {
   const isRunning = isServiceRunning()
 
@@ -202,9 +231,9 @@ async function main() {
       }
       return;
     } else {
-      // Not a preset nor a known command
-      console.log(HELP_TEXT);
-      process.exit(1);
+      // Not a preset nor a known command: treat as code command
+      await runCodeCommand(process.argv.slice(2));
+      return;
     }
   }
 
@@ -277,34 +306,7 @@ async function main() {
       await activateCommand();
       break;
     case "code":
-      if (!isRunning) {
-        console.log("Service not running, starting service...");
-        const cliPath = join(__dirname, "cli.js");
-        const startProcess = spawn("node", [cliPath, "start"], {
-          detached: true,
-          stdio: "ignore",
-        });
-
-        startProcess.on("error", (error) => {
-          console.error("Failed to start service:", error.message);
-          process.exit(1);
-        });
-
-        startProcess.unref();
-
-        if (await waitForService()) {
-          const codeArgs = process.argv.slice(3);
-          executeCodeCommand(codeArgs);
-        } else {
-          console.error(
-            "Service startup timeout, please manually run `ccr start` to start the service"
-          );
-          process.exit(1);
-        }
-      } else {
-        const codeArgs = process.argv.slice(3);
-        executeCodeCommand(codeArgs);
-      }
+      await runCodeCommand(process.argv.slice(3));
       break;
     case "ui":
       // Check if service is running
@@ -437,8 +439,8 @@ async function main() {
       console.log(HELP_TEXT);
       break;
     default:
-      console.log(HELP_TEXT);
-      process.exit(1);
+      await runCodeCommand([]);
+      break;
   }
 }
 

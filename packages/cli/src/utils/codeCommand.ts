@@ -8,7 +8,7 @@ import {
 import { quote } from 'shell-quote';
 import minimist from "minimist";
 import { createEnvVariables } from "./createEnvVariables";
-import { select } from '@inquirer/prompts';
+import { select, Separator } from '@inquirer/prompts';
 import { readFileSync, existsSync, unlinkSync, rmSync, writeFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
@@ -31,6 +31,14 @@ interface SessionMetadata {
   display?: string;
   timestamp?: string | number;
   [key: string]: any;
+}
+
+function getProjectDirName(cwd: string): string {
+  let posixCwd = cwd.replace(/\\/g, '/');
+  if (posixCwd.match(/^[a-zA-Z]:/)) {
+    posixCwd = `/mnt/${posixCwd[0].toLowerCase()}${posixCwd.slice(2)}`;
+  }
+  return posixCwd.replace(/\//g, '-');
 }
 
 export async function executeCodeCommand(
@@ -178,67 +186,120 @@ async function showSessionList(
   presetName?: string
 ): Promise<void> {
   const historyPath = join(process.env.HOME || process.env.USERPROFILE || '', '.claude', 'history.jsonl');
-
-  if (!existsSync(historyPath)) {
-    console.log('No session history found.');
-    process.exit(0);
-  }
-
-  const historyContent = readFileSync(historyPath, 'utf-8');
-  const lines = historyContent.trim().split('\n').filter(line => line.trim());
+  const cwd = process.cwd();
+  const projectDir = join(
+    process.env.HOME || process.env.USERPROFILE || '',
+    '.claude',
+    'projects',
+    getProjectDirName(cwd)
+  );
 
   const sessions: SessionMetadata[] = [];
   const seenSessionIds = new Set<string>();
-  for (const line of lines) {
-    try {
-      const session = JSON.parse(line) as SessionMetadata;
-      if (session.sessionId && !seenSessionIds.has(session.sessionId)) {
-        seenSessionIds.add(session.sessionId);
-        sessions.push(session);
+
+  // Read global history.jsonl
+  if (existsSync(historyPath)) {
+    const historyContent = readFileSync(historyPath, 'utf-8');
+    const lines = historyContent.trim().split('\n').filter(line => line.trim());
+
+    for (const line of lines) {
+      try {
+        const session = JSON.parse(line) as SessionMetadata;
+        if (session.sessionId && !seenSessionIds.has(session.sessionId) && session.project === cwd) {
+          seenSessionIds.add(session.sessionId);
+          sessions.push(session);
+        }
+      } catch (e) {
+        // Skip invalid JSON lines
       }
-    } catch (e) {
-      // Skip invalid JSON lines
     }
   }
 
-  // Take last 20 sessions
-  const recentSessions = sessions.slice(-20).reverse();
+  // Read project directory .jsonl files for sessions not in history.jsonl
+  if (existsSync(projectDir)) {
+    const files = readdirSync(projectDir);
+    for (const file of files) {
+      if (!file.endsWith('.jsonl')) continue;
+      const sessionId = file.replace('.jsonl', '');
+      if (seenSessionIds.has(sessionId)) continue;
+
+      const filePath = join(projectDir, file);
+      try {
+        const content = readFileSync(filePath, 'utf-8');
+        const firstUserLine = content.split('\n').find(line => {
+          try {
+            const entry = JSON.parse(line);
+            return entry.type === 'user' && entry.message?.content;
+          } catch { return false; }
+        });
+        if (firstUserLine) {
+          const entry = JSON.parse(firstUserLine);
+          const display = typeof entry.message?.content === 'string'
+            ? entry.message.content.substring(0, 40)
+            : 'No prompt';
+          // Try to get timestamp from first line
+          let timestamp = 0;
+          const firstLine = content.split('\n')[0];
+          try {
+            const first = JSON.parse(firstLine);
+            timestamp = first.timestamp ? new Date(first.timestamp).getTime() : 0;
+          } catch {}
+          sessions.push({ sessionId, display, timestamp, project: cwd });
+          seenSessionIds.add(sessionId);
+        }
+      } catch (e) {
+        // Skip unreadable files
+      }
+    }
+  }
+
+  // Sort by timestamp descending, take last 20
+  const recentSessions = sessions
+    .sort((a, b) => {
+      let ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      if (isNaN(ta)) ta = 0;
+      let tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      if (isNaN(tb)) tb = 0;
+      return tb - ta;
+    })
+    .slice(0, 20);
 
   if (recentSessions.length === 0) {
     console.log('No sessions found in history.');
     process.exit(0);
   }
 
-  const choices = recentSessions.map(session => {
+  const choices: any[] = [];
+  for (let i = 0; i < recentSessions.length; i++) {
+    const session = recentSessions[i];
     const displayText = session.display
       ? session.display.substring(0, 40) + (session.display.length > 40 ? '...' : '')
       : 'No prompt';
     const date = session.timestamp ? new Date(session.timestamp).toLocaleDateString() : 'Unknown date';
-    return {
-      name: `${displayText} (${date})`,
+    choices.push({
+      name: `  ${displayText} (${date})`,
       value: session.sessionId
-    };
-  });
+    });
+    if (i < recentSessions.length - 1) {
+      choices.push(new Separator('─'.repeat(60)));
+    }
+  }
 
-  choices.push({ name: '← 返回', value: '__back__' });
-  choices.push({ name: '✕ 取消', value: '__cancel__' });
+  choices.push(new Separator('─'.repeat(60)));
+  choices.push({ name: '✕ Cancel', value: '__cancel__' });
 
   const selectedSessionId = await select({
-    message: '选择要恢复的会话：',
-    choices: choices
+    message: 'Select session to resume:',
+    choices: choices,
+    loop: false
   });
 
   if (selectedSessionId === '__cancel__') {
     process.exit(0);
   }
 
-  if (selectedSessionId === '__back__') {
-    // Return to normal flow without --resume
-    const filteredArgs = args.filter(arg => arg !== '--resume');
-    await executeCodeCommand(filteredArgs, presetConfig, envOverrides, presetName);
-    return;
-  }
-
+  // Clear screen before next prompt to avoid leftover text
+  process.stdout.write('\x1b[2J\x1b[H');
   await showSessionActions(selectedSessionId, args, presetConfig, envOverrides, presetName);
 }
 
@@ -250,12 +311,13 @@ async function showSessionActions(
   presetName?: string
 ): Promise<void> {
   const action = await select({
-    message: '选择操作：',
+    message: 'Select action:',
     choices: [
-          { name: '恢复会话', value: 'resume' },
-          { name: '删除会话', value: 'delete' },
-          { name: '← 返回', value: '__back__' }
-        ]
+          { name: 'Resume session', value: 'resume' },
+          { name: 'Delete session', value: 'delete' },
+          { name: '← Back', value: '__back__' }
+        ],
+    loop: false
   });
 
   if (action === 'resume') {
@@ -277,6 +339,9 @@ async function resumeSession(
   // Filter out --resume from args and add -r <sessionId>
   const filteredArgs = args.filter(arg => arg !== '--resume');
   const resumeArgs = ['-r', sessionId, ...filteredArgs];
+
+  // Clear screen completely before launching Claude Code
+  process.stdout.write('\x1b[2J\x1b[H');
 
   // Execute the command with the resume flag
   await executeCodeCommand(resumeArgs, presetConfig, envOverrides, presetName);

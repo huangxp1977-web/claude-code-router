@@ -265,188 +265,207 @@ async function getServer(options: RunOptions = {}) {
   serverInstance.addHook("onSend", (req: any, reply: any, payload: any, done: any) => {
     if (req.sessionId && req.pathname.endsWith("/v1/messages")) {
       if (payload instanceof ReadableStream) {
-        if (req.agents) {
-          const abortController = new AbortController();
-          const eventStream = payload.pipeThrough(new SSEParserTransform())
-          let currentAgent: undefined | IAgent;
-          let currentToolIndex = -1
-          let currentToolName = ''
-          let currentToolArgs = ''
-          let currentToolId = ''
-          const toolMessages: any[] = []
-          const assistantMessages: any[] = []
-          // Store Anthropic format message body, distinguishing text and tool types
-          return done(null, rewriteStream(eventStream, async (data, controller) => {
-            try {
-              // Detect tool call start
-              if (data.event === 'content_block_start' && data?.data?.content_block?.name) {
-                const agent = req.agents.find((name: string) => agentsManager.getAgent(name)?.tools.get(data.data.content_block.name))
-                if (agent) {
-                  currentAgent = agentsManager.getAgent(agent)
-                  currentToolIndex = data.data.index
-                  currentToolName = data.data.content_block.name
-                  currentToolId = data.data.content_block.id
-                  return undefined;
-                }
-              }
-
-              // Collect tool arguments
-              if (currentToolIndex > -1 && data.data.index === currentToolIndex && data.data?.delta?.type === 'input_json_delta') {
-                currentToolArgs += data.data?.delta?.partial_json;
-                return undefined;
-              }
-
-              // Tool call completed, handle agent invocation
-              if (currentToolIndex > -1 && data.data.index === currentToolIndex && data.data.type === 'content_block_stop') {
+              // Common background read function for usage tracking
+              const read = async (stream: ReadableStream) => {
+                const reader = stream.getReader();
+                let buffer = "";
+                let accumulatedText = "";
                 try {
-                  const args = JSON5.parse(currentToolArgs);
-                  assistantMessages.push({
-                    type: "tool_use",
-                    id: currentToolId,
-                    name: currentToolName,
-                    input: args
-                  })
-                  const toolResult = await currentAgent?.tools.get(currentToolName)?.handler(args, {
-                    req,
-                    config
-                  });
-                  toolMessages.push({
-                    "tool_use_id": currentToolId,
-                    "type": "tool_result",
-                    "content": toolResult
-                  })
-                  currentAgent = undefined
-                  currentToolIndex = -1
-                  currentToolName = ''
-                  currentToolArgs = ''
-                  currentToolId = ''
-                } catch (e) {
-                  console.log(e);
-                }
-                return undefined;
-              }
+                  while (true) {
+                    const { done, value } = await reader.read();
+                                        if (done) break;
+                                        // 安全解码：兼容 agent 路径下 string 和非 agent 路径下 Uint8Array
+                                        let chunkText = "";
+                                        if (typeof value === "string") {
+                                          chunkText = value;
+                                        } else if (value instanceof Uint8Array || Buffer.isBuffer(value)) {
+                                          chunkText = new TextDecoder().decode(value, { stream: true });
+                                        } else {
+                                          chunkText = new TextDecoder().decode(value as any, { stream: true });
+                                        }
+                                        buffer += chunkText;
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop() || "";
 
-              if (data.event === 'message_delta' && toolMessages.length) {
-                req.body.messages.push({
-                  role: 'assistant',
-                  content: assistantMessages
-                })
-                req.body.messages.push({
-                  role: 'user',
-                  content: toolMessages
-                })
-                const response = await fetch(`http://127.0.0.1:${config.PORT || 3456}/v1/messages`, {
-                  method: "POST",
-                  headers: {
-                    'x-api-key': config.APIKEY,
-                    'content-type': 'application/json',
-                  },
-                  body: JSON.stringify(req.body),
-                })
-                if (!response.ok) {
-                  return undefined;
-                }
-                const stream = response.body!.pipeThrough(new SSEParserTransform() as any)
-                const reader = stream.getReader()
-                while (true) {
-                  try {
-                    const {value, done} = await reader.read();
-                    if (done) {
-                      break;
-                    }
-                    const eventData = value as any;
-                    if (['message_start', 'message_stop'].includes(eventData.event)) {
-                      continue
-                    }
-
-                    // Check if stream is still writable
-                    if (!controller.desiredSize) {
-                      break;
-                    }
-
-                    controller.enqueue(eventData)
-                  }catch (readError: any) {
-                    if (readError.name === 'AbortError' || readError.code === 'ERR_STREAM_PREMATURE_CLOSE') {
-                      abortController.abort(); // Abort all related operations
-                      break;
-                    }
-                    throw readError;
-                  }
-
-                }
-                return undefined
-              }
-              return data
-            }catch (error: any) {
-              console.error('Unexpected error in stream processing:', error);
-
-              // Handle premature stream closure error
-              if (error.code === 'ERR_STREAM_PREMATURE_CLOSE') {
-                abortController.abort();
-                return undefined;
-              }
-
-              // Re-throw other errors
-              throw error;
-            }
-          }).pipeThrough(new SSESerializerTransform()))
-        }
-
-        const [originalStream, clonedStream] = payload.tee();
-        const read = async (stream: ReadableStream) => {
-          const reader = stream.getReader();
-          let buffer = "";
-                    let accumulatedText = ""; // Track accumulated output text for fallback usage estimation
-                    try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              buffer += new TextDecoder().decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-
-              for (const line of lines) {
-                const trimmed = line.trim();
-                if (trimmed.startsWith("data:")) {
-                  try {
-                    const message = JSON.parse(trimmed.slice(5).trim());
-                    if (message.type === "content_block_delta" && message.delta?.text) {
-                      accumulatedText += message.delta.text;
-                    }
-                    if (message.type === "message_delta" && message.usage) {
-                      sessionUsageCache.put(req.sessionId, message.usage);
-                      if (req.provider && req.body?.model && !(req as any)._usageRecorded) {
-                        const tokens = (message.usage.input_tokens || 0) + (message.usage.output_tokens || 0);
-                        if (tokens > 0) recordModelUsage(req.provider, req.body.model, tokens);
+                    for (const line of lines) {
+                      const trimmed = line.trim();
+                      if (trimmed.startsWith("data:")) {
+                        try {
+                          const message = JSON.parse(trimmed.slice(5).trim());
+                          if (message.type === "content_block_delta" && message.delta?.text) {
+                            accumulatedText += message.delta.text;
+                          }
+                          if (message.type === "message_delta" && message.usage) {
+                            sessionUsageCache.put(req.sessionId, message.usage);
+                            if (req.provider && req.body?.model && !(req as any)._usageRecorded) {
+                              const tokens = (message.usage.input_tokens || 0) + (message.usage.output_tokens || 0);
+                              if (tokens > 0) {
+                                recordModelUsage(req.provider, req.body.model, tokens);
+                                (req as any)._usageRecorded = true;
+                              }
+                            }
+                          }
+                        } catch {}
                       }
                     }
-                  } catch {}
+                  }
+                } catch (readError: any) {
+                                  if (readError.name === 'AbortError' || readError.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+                                    // Stream closed prematurely, fallback will handle if there's text
+                                  } else {
+                                    console.error('Error in background stream reading:', readError);
+                                  }
+                                  // 释放背压锁，防止堵塞主响应流
+                                  try { await reader.cancel(); } catch {}
+                                } finally {
+                  // Fallback: estimate usage if provider didn't return usage data in stream
+                  if (req.provider && req.body?.model && !(req as any)._usageRecorded) {
+                    const inputTokens = (req as any).tokenCount || 0;
+                    const outputTokens = Math.ceil(accumulatedText.length * 0.8);
+                    const totalTokens = inputTokens + outputTokens;
+                    if (totalTokens > 0) {
+                      recordModelUsage(req.provider, req.body.model, totalTokens);
+                      (req as any)._usageRecorded = true;
+                    }
+                  }
+                  reader.releaseLock();
                 }
+              };
+
+              if (req.agents) {
+                const abortController = new AbortController();
+                const eventStream = payload.pipeThrough(new SSEParserTransform())
+                let currentAgent: undefined | IAgent;
+                let currentToolIndex = -1
+                let currentToolName = ''
+                let currentToolArgs = ''
+                let currentToolId = ''
+                const toolMessages: any[] = []
+                const assistantMessages: any[] = []
+                // Store Anthropic format message body, distinguishing text and tool types
+                const rewritten = rewriteStream(eventStream, async (data, controller) => {
+                  try {
+                    // Detect tool call start
+                    if (data.event === 'content_block_start' && data?.data?.content_block?.name) {
+                      const agent = req.agents.find((name: string) => agentsManager.getAgent(name)?.tools.get(data.data.content_block.name))
+                      if (agent) {
+                        currentAgent = agentsManager.getAgent(agent)
+                        currentToolIndex = data.data.index
+                        currentToolName = data.data.content_block.name
+                        currentToolId = data.data.content_block.id
+                        return undefined;
+                      }
+                    }
+
+                    // Collect tool arguments
+                    if (currentToolIndex > -1 && data.data.index === currentToolIndex && data.data?.delta?.type === 'input_json_delta') {
+                      currentToolArgs += data.data?.delta?.partial_json;
+                      return undefined;
+                    }
+
+                    // Tool call completed, handle agent invocation
+                    if (currentToolIndex > -1 && data.data.index === currentToolIndex && data.data.type === 'content_block_stop') {
+                      try {
+                        const args = JSON5.parse(currentToolArgs);
+                        assistantMessages.push({
+                          type: "tool_use",
+                          id: currentToolId,
+                          name: currentToolName,
+                          input: args
+                        })
+                        const toolResult = await currentAgent?.tools.get(currentToolName)?.handler(args, {
+                          req,
+                          config
+                        });
+                        toolMessages.push({
+                          "tool_use_id": currentToolId,
+                          "type": "tool_result",
+                          "content": toolResult
+                        })
+                        currentAgent = undefined
+                        currentToolIndex = -1
+                        currentToolName = ''
+                        currentToolArgs = ''
+                        currentToolId = ''
+                      } catch (e) {
+                        console.log(e);
+                      }
+                      return undefined;
+                    }
+
+                    if (data.event === 'message_delta' && toolMessages.length) {
+                      req.body.messages.push({
+                        role: 'assistant',
+                        content: assistantMessages
+                      })
+                      req.body.messages.push({
+                        role: 'user',
+                        content: toolMessages
+                      })
+                      const response = await fetch(`http://127.0.0.1:${config.PORT || 3456}/v1/messages`, {
+                        method: "POST",
+                        headers: {
+                          'x-api-key': config.APIKEY,
+                          'content-type': 'application/json',
+                        },
+                        body: JSON.stringify(req.body),
+                      })
+                      if (!response.ok) {
+                        return undefined;
+                      }
+                      const stream = response.body!.pipeThrough(new SSEParserTransform() as any)
+                      const reader = stream.getReader()
+                      while (true) {
+                        try {
+                          const {value, done} = await reader.read();
+                          if (done) {
+                            break;
+                          }
+                          const eventData = value as any;
+                          if (['message_start', 'message_stop'].includes(eventData.event)) {
+                            continue
+                          }
+
+                          // Check if stream is still writable
+                          if (!controller.desiredSize) {
+                            break;
+                          }
+
+                          controller.enqueue(eventData)
+                        }catch (readError: any) {
+                          if (readError.name === 'AbortError' || readError.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+                            abortController.abort(); // Abort all related operations
+                            break;
+                          }
+                          throw readError;
+                        }
+
+                      }
+                      return undefined
+                    }
+                    return data
+                  }catch (error: any) {
+                    console.error('Unexpected error in stream processing:', error);
+
+                    // Handle premature stream closure error
+                    if (error.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+                      abortController.abort();
+                      return undefined;
+                    }
+
+                    // Re-throw other errors
+                    throw error;
+                  }
+                }).pipeThrough(new SSESerializerTransform())
+                const [originalStream, clonedStream] = rewritten.tee();
+                read(clonedStream);
+                return done(null, originalStream)
               }
+
+              const [originalStream, clonedStream] = payload.tee();
+              read(clonedStream);
+              return done(null, originalStream)
             }
-            // Fallback: estimate usage if provider didn't return usage data in stream
-            if (req.provider && req.body?.model && !(req as any)._usageRecorded) {
-              const inputTokens = (req as any).tokenCount || 0;
-              const outputTokens = Math.ceil(accumulatedText.length * 0.8);
-              const totalTokens = inputTokens + outputTokens;
-              if (totalTokens > 0) {
-                recordModelUsage(req.provider, req.body.model, totalTokens);
-                (req as any)._usageRecorded = true;
-              }
-            }
-          } catch (readError: any) {
-            if (readError.name === 'AbortError' || readError.code === 'ERR_STREAM_PREMATURE_CLOSE') {
-              console.error('Background read stream closed prematurely');
-            } else {
-              console.error('Error in background stream reading:', readError);
-            }
-          } finally {
-            reader.releaseLock();
-          }
-        }
-        read(clonedStream);
-        return done(null, originalStream)
-      }
       // Non-streaming response: payload may be string/Buffer (Fastify serialized) or object
       let usage = null;
       if (payload) {
@@ -469,7 +488,7 @@ async function getServer(options: RunOptions = {}) {
         if (payload.error) {
           return done(payload.error, null)
         } else {
-          return done(payload, null)
+          return done(null, payload)
         }
       }
     }
