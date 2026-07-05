@@ -214,8 +214,9 @@ async function getServer(options: RunOptions = {}) {
         if (err) reject(err);
         else resolve();
       };
-      // Call the async auth function
-      apiKeyAuth(config)(req, reply, done).catch(reject);
+      // Read latest config on each request for hot-reload support
+      const currentConfig = serverInstance.configService.getAll();
+      apiKeyAuth(currentConfig)(req, reply, done).catch(reject);
     });
   });
   serverInstance.addHook("preHandler", async (req: any, reply: any) => {
@@ -229,14 +230,16 @@ async function getServer(options: RunOptions = {}) {
   serverInstance.addHook("preHandler", async (req: any, reply: any) => {
     if (req.pathname.endsWith("/v1/messages")) {
       const useAgents = []
+      // Read latest config on each request for hot-reload support
+      const currentConfig = serverInstance.configService.getAll();
 
       for (const agent of agentsManager.getAllAgents()) {
-        if (agent.shouldHandle(req, config)) {
+        if (agent.shouldHandle(req, currentConfig)) {
           // Set agent identifier
           useAgents.push(agent.name)
 
           // change request body
-          agent.reqHandler(req, config);
+          agent.reqHandler(req, currentConfig);
 
           // append agent tools
           if (agent.tools.size) {
@@ -375,7 +378,7 @@ async function getServer(options: RunOptions = {}) {
                         })
                         const toolResult = await currentAgent?.tools.get(currentToolName)?.handler(args, {
                           req,
-                          config
+                          config: serverInstance.configService.getAll()
                         });
                         toolMessages.push({
                           "tool_use_id": currentToolId,
@@ -402,10 +405,11 @@ async function getServer(options: RunOptions = {}) {
                         role: 'user',
                         content: toolMessages
                       })
-                      const response = await fetch(`http://127.0.0.1:${config.PORT || 3456}/v1/messages`, {
+                      const currentConfig = serverInstance.configService.getAll();
+                      const response = await fetch(`http://127.0.0.1:${currentConfig.PORT || 3456}/v1/messages`, {
                         method: "POST",
                         headers: {
-                          'x-api-key': config.APIKEY,
+                          'x-api-key': currentConfig.APIKEY,
                           'content-type': 'application/json',
                         },
                         body: JSON.stringify(req.body),

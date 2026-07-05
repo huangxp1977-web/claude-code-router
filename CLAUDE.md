@@ -333,6 +333,7 @@ ui (standalone frontend application)
 6. **Code comments**: All comments in code MUST be written in English
 7. **Documentation**: When implementing new features, add documentation to the docs project instead of creating standalone md files
 8. **Git status checks**: Always use `git diff -w --stat` to see actual content changes (filters out CRLF/LF conversions). Use `git diff --name-only` for file lists, never `git status --short` which inflates counts with whitespace-only changes. Distinguish staged (`git diff --cached`) vs unstaged (`git diff`) vs untracked (`git ls-files --others --exclude-standard`).
+9. **Build**: Do NOT run `pnpm build` or any build command. The user runs builds manually after reviewing changes.
 
 ## Configuration Example Locations
 

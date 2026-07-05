@@ -404,7 +404,7 @@ async function deleteSession(
     writeFileSync(historyPath, filteredLines.join('\n'), 'utf-8');
   }
 
-  console.log('会话已删除');
+  console.log('Session deleted');
 
   // Show session list again
   await showSessionList(args, presetConfig, envOverrides, presetName);

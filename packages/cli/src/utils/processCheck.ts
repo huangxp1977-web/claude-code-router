@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { PID_FILE, REFERENCE_COUNT_FILE } from '@thxp/shared';
 import { readConfigFile } from '.';
 import find from 'find-process';
-import { execSync } from 'child_process'; // 引入 execSync 来执行命令行
+import { execSync } from 'child_process'; // Import execSync for process checking
 
 export async function isProcessRunning(pid: number): Promise<boolean> {
     try {

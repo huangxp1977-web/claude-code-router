@@ -38,12 +38,14 @@ export class ConfigService {
   }
 
   private loadConfig(): void {
-    if (this.options.useJsonFile && this.options.jsonPath) {
-      this.loadJsonConfig();
-    }
-
+    // Load initialConfig first as base defaults (not mutated on reload)
     if (this.options.initialConfig) {
       this.config = { ...this.config, ...this.options.initialConfig };
+    }
+
+    // Then load JSON file to override initialConfig
+    if (this.options.useJsonFile && this.options.jsonPath) {
+      this.loadJsonConfig();
     }
 
     if (this.options.useEnvFile) {
@@ -155,15 +157,9 @@ export class ConfigService {
   }
 
   public reload(): void {
-      this.config = {};
-      if (this.options.initialConfig) {
-        delete this.options.initialConfig.providers;
-        delete this.options.initialConfig.Providers;
-        delete this.options.initialConfig.Router;
-        delete this.options.initialConfig.WebSearch;
-      }
-      this.loadConfig();
-    }
+    this.config = {};
+    this.loadConfig();
+  }
 
   public getConfigSummary(): string {
     const summary: string[] = [];
