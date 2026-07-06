@@ -102,6 +102,15 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
             webSearch: '',
             image: ''
           },
+          WebSearch: data.WebSearch && typeof data.WebSearch === 'object' ? {
+            enabled: typeof data.WebSearch.enabled === 'boolean' ? data.WebSearch.enabled : true,
+            activeProvider: typeof data.WebSearch.activeProvider === 'string' ? data.WebSearch.activeProvider : 'duckduckgo',
+            providers: data.WebSearch.providers && typeof data.WebSearch.providers === 'object' ? data.WebSearch.providers : {}
+          } : {
+            enabled: true,
+            activeProvider: 'duckduckgo',
+            providers: {}
+          },
           CUSTOM_ROUTER_PATH: typeof data.CUSTOM_ROUTER_PATH === 'string' ? data.CUSTOM_ROUTER_PATH : ''
         };
         
@@ -130,6 +139,11 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
               think: '',
               webSearch: '',
               image: ''
+            },
+            WebSearch: {
+              enabled: true,
+              activeProvider: 'duckduckgo',
+              providers: {}
             },
             CUSTOM_ROUTER_PATH: ''
           });

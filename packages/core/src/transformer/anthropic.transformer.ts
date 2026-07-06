@@ -46,7 +46,7 @@ export class AnthropicTransformer implements Transformer {
   }
 
   async transformRequestOut(
-    request: Record<string, any>
+    request: Record<string, any>,
   ): Promise<UnifiedChatRequest> {
     const messages: UnifiedMessage[] = [];
 
@@ -86,7 +86,7 @@ export class AnthropicTransformer implements Transformer {
         if (Array.isArray(msg.content)) {
           if (msg.role === "user") {
             const toolParts = msg.content.filter(
-              (c: any) => c.type === "tool_result" && c.tool_use_id
+              (c: any) => c.type === "tool_result" && c.tool_use_id,
             );
             if (toolParts.length) {
               toolParts.forEach((tool: any) => {
@@ -106,7 +106,7 @@ export class AnthropicTransformer implements Transformer {
             const textAndMediaParts = msg.content.filter(
               (c: any) =>
                 (c.type === "text" && c.text) ||
-                (c.type === "image" && c.source)
+                (c.type === "image" && c.source),
             );
             if (textAndMediaParts.length) {
               messages.push({
@@ -120,7 +120,7 @@ export class AnthropicTransformer implements Transformer {
                           part.source?.type === "base64"
                             ? formatBase64(
                                 part.source.data,
-                                part.source.media_type
+                                part.source.media_type,
                               )
                             : part.source.url,
                       },
@@ -137,7 +137,7 @@ export class AnthropicTransformer implements Transformer {
               content: "",
             };
             const textParts = msg.content.filter(
-              (c: any) => c.type === "text" && c.text
+              (c: any) => c.type === "text" && c.text,
             );
             if (textParts.length) {
               assistantMessage.content = textParts
@@ -146,7 +146,7 @@ export class AnthropicTransformer implements Transformer {
             }
 
             const toolCallParts = msg.content.filter(
-              (c: any) => c.type === "tool_use" && c.id
+              (c: any) => c.type === "tool_use" && c.id,
             );
             if (toolCallParts.length) {
               assistantMessage.tool_calls = toolCallParts.map((tool: any) => {
@@ -155,7 +155,7 @@ export class AnthropicTransformer implements Transformer {
                 if (typeof safeInput !== "object" || safeInput === null) {
                   safeInput = safeInput ? { text: String(safeInput) } : {};
                 }
-                
+
                 return {
                   id: tool.id,
                   type: "function" as const,
@@ -168,7 +168,7 @@ export class AnthropicTransformer implements Transformer {
             }
 
             const thinkingPart = msg.content.find(
-              (c: any) => c.type === "thinking" && c.signature
+              (c: any) => c.type === "thinking" && c.signature,
             );
             if (thinkingPart) {
               assistantMessage.thinking = {
@@ -217,7 +217,7 @@ export class AnthropicTransformer implements Transformer {
 
   async transformResponseIn(
     response: Response,
-    context?: TransformerContext
+    context?: TransformerContext,
   ): Promise<Response> {
     const isStream = response.headers
       .get("Content-Type")
@@ -228,7 +228,7 @@ export class AnthropicTransformer implements Transformer {
       }
       const convertedStream = await this.convertOpenAIStreamToAnthropic(
         response.body,
-        context!
+        context!,
       );
       return new Response(convertedStream, {
         headers: {
@@ -241,7 +241,7 @@ export class AnthropicTransformer implements Transformer {
       const data = (await response.json()) as any;
       const anthropicResponse = this.convertOpenAIResponseToAnthropic(
         data,
-        context!
+        context!,
       );
       return new Response(JSON.stringify(anthropicResponse), {
         headers: { "Content-Type": "application/json" },
@@ -251,7 +251,7 @@ export class AnthropicTransformer implements Transformer {
 
   async transformRequestIn(
     request: UnifiedChatRequest,
-    provider: LLMProvider
+    provider: LLMProvider,
   ): Promise<Record<string, any>> {
     const messages: any[] = [];
     let systemPrompt = "";
@@ -268,7 +268,9 @@ export class AnthropicTransformer implements Transformer {
             .join("\n");
         }
         if (contentStr) {
-          systemPrompt = systemPrompt ? `${systemPrompt}\n\n${contentStr}` : contentStr;
+          systemPrompt = systemPrompt
+            ? `${systemPrompt}\n\n${contentStr}`
+            : contentStr;
         }
       } else if (msg.role === "user" || msg.role === "assistant") {
         const content: any[] = [];
@@ -324,7 +326,11 @@ export class AnthropicTransformer implements Transformer {
           content: msg.content,
         };
         const lastMessage = messages[messages.length - 1];
-        if (lastMessage && lastMessage.role === "user" && Array.isArray(lastMessage.content)) {
+        if (
+          lastMessage &&
+          lastMessage.role === "user" &&
+          Array.isArray(lastMessage.content)
+        ) {
           lastMessage.content.push(toolResultBlock);
         } else {
           messages.push({ role: "user", content: [toolResultBlock] });
@@ -338,16 +344,21 @@ export class AnthropicTransformer implements Transformer {
       max_tokens: request.max_tokens || 4000,
     };
     if (systemPrompt) body.system = systemPrompt;
-    if (request.temperature !== undefined) body.temperature = request.temperature;
+    if (request.temperature !== undefined)
+      body.temperature = request.temperature;
     if (request.stream !== undefined) body.stream = request.stream;
 
     // Convert unified tools to Anthropic format
     if (request.tools?.length) {
       const regularTools = request.tools.filter(
-        (tool) => tool.function.name !== "web_search" && tool.function.name !== "WebSearch"
+        (tool) =>
+          tool.function.name !== "web_search" &&
+          tool.function.name !== "WebSearch",
       );
       const hasWebSearch = request.tools.some(
-        (tool) => tool.function.name === "web_search" || tool.function.name === "WebSearch"
+        (tool) =>
+          tool.function.name === "web_search" ||
+          tool.function.name === "WebSearch",
       );
       body.tools = regularTools.map((tool) => ({
         name: tool.function.name,
@@ -367,12 +378,17 @@ export class AnthropicTransformer implements Transformer {
     if (request.tool_choice) {
       if (request.tool_choice === "auto") {
         body.tool_choice = { type: "auto" };
-      } else if (request.tool_choice === "any" || request.tool_choice === "required") {
-        body.tool_choice = { type: "any" };
+      } else if (
+        request.tool_choice === "any" ||
+        request.tool_choice === "required"
+      ) {
+        body.tool_choice = "required";
       } else if (typeof request.tool_choice === "string") {
         body.tool_choice = { type: "tool", name: request.tool_choice };
       } else if (typeof request.tool_choice === "object") {
-        const toolName = (request.tool_choice as any).function?.name || (request.tool_choice as any).name;
+        const toolName =
+          (request.tool_choice as any).function?.name ||
+          (request.tool_choice as any).name;
         if (toolName) {
           body.tool_choice = { type: "tool", name: toolName };
         }
@@ -386,6 +402,10 @@ export class AnthropicTransformer implements Transformer {
         budget_tokens: request.reasoning.max_tokens,
       };
     }
+
+    // Strip logprobs which many OpenAI-compatible providers don't support
+    delete body.logprobs;
+    delete body.top_logprobs;
 
     return { body, config: {} };
   }
@@ -403,7 +423,7 @@ export class AnthropicTransformer implements Transformer {
 
   private async convertOpenAIStreamToAnthropic(
     openaiStream: ReadableStream,
-    context: TransformerContext
+    context: TransformerContext,
   ): Promise<ReadableStream> {
     const readable = new ReadableStream({
       start: async (controller) => {
@@ -477,9 +497,9 @@ export class AnthropicTransformer implements Transformer {
               safeEnqueue(
                 encoder.encode(
                   `event: content_block_stop\ndata: ${JSON.stringify(
-                    contentBlockStop
-                  )}\n\n`
-                )
+                    contentBlockStop,
+                  )}\n\n`,
+                ),
               );
               currentContentBlockIndex = -1;
             }
@@ -499,9 +519,9 @@ export class AnthropicTransformer implements Transformer {
             safeEnqueue(
               encoder.encode(
                 `event: content_block_start\ndata: ${JSON.stringify(
-                  contentBlockStart
-                )}\n\n`
-              )
+                  contentBlockStart,
+                )}\n\n`,
+              ),
             );
             currentContentBlockIndex = textBlockIndex;
           }
@@ -518,9 +538,9 @@ export class AnthropicTransformer implements Transformer {
             safeEnqueue(
               encoder.encode(
                 `event: content_block_delta\ndata: ${JSON.stringify(
-                  anthropicChunk
-                )}\n\n`
-              )
+                  anthropicChunk,
+                )}\n\n`,
+              ),
             );
           }
         };
@@ -537,9 +557,9 @@ export class AnthropicTransformer implements Transformer {
                 safeEnqueue(
                   encoder.encode(
                     `event: content_block_stop\ndata: ${JSON.stringify(
-                      contentBlockStop
-                    )}\n\n`
-                  )
+                      contentBlockStop,
+                    )}\n\n`,
+                  ),
                 );
                 currentContentBlockIndex = -1;
               }
@@ -548,9 +568,9 @@ export class AnthropicTransformer implements Transformer {
                 safeEnqueue(
                   encoder.encode(
                     `event: message_delta\ndata: ${JSON.stringify(
-                      stopReasonMessageDelta
-                    )}\n\n`
-                  )
+                      stopReasonMessageDelta,
+                    )}\n\n`,
+                  ),
                 );
                 stopReasonMessageDelta = null;
               } else {
@@ -567,8 +587,8 @@ export class AnthropicTransformer implements Transformer {
                         output_tokens: 0,
                         cache_read_input_tokens: 0,
                       },
-                    })}\n\n`
-                  )
+                    })}\n\n`,
+                  ),
                 );
               }
               const messageStop = {
@@ -577,9 +597,9 @@ export class AnthropicTransformer implements Transformer {
               safeEnqueue(
                 encoder.encode(
                   `event: message_stop\ndata: ${JSON.stringify(
-                    messageStop
-                  )}\n\n`
-                )
+                    messageStop,
+                  )}\n\n`,
+                ),
               );
               controller.close();
               isClosed = true;
@@ -649,8 +669,8 @@ export class AnthropicTransformer implements Transformer {
 
                   safeEnqueue(
                     encoder.encode(
-                      `event: error\ndata: ${JSON.stringify(errorMessage)}\n\n`
-                    )
+                      `event: error\ndata: ${JSON.stringify(errorMessage)}\n\n`,
+                    ),
                   );
                   continue;
                 }
@@ -680,20 +700,40 @@ export class AnthropicTransformer implements Transformer {
                   safeEnqueue(
                     encoder.encode(
                       `event: message_start\ndata: ${JSON.stringify(
-                        messageStart
-                      )}\n\n`
-                    )
+                        messageStart,
+                      )}\n\n`,
+                    ),
                   );
                 }
 
                 const choice = chunk.choices?.[0];
+                // Auto-detect reasoning_content and map to thinking (response-only, no side effects)
+                if (
+                  choice?.delta?.reasoning_content &&
+                  !choice?.delta?.thinking
+                ) {
+                  choice.delta.thinking = {
+                    content: choice.delta.reasoning_content,
+                  };
+                }
                 if (chunk.usage) {
                   // Record real usage at transformer level (before format conversion)
                   // This is the most reliable point to capture OpenAI provider usage data
-                  const tokens = (chunk.usage.prompt_tokens || 0) + (chunk.usage.completion_tokens || 0);
-                  if (tokens > 0 && context.req?.provider && context.req?.body?.model && !context.req?._usageRecorded) {
+                  const tokens =
+                    (chunk.usage.prompt_tokens || 0) +
+                    (chunk.usage.completion_tokens || 0);
+                  if (
+                    tokens > 0 &&
+                    context.req?.provider &&
+                    context.req?.body?.model &&
+                    !context.req?._usageRecorded
+                  ) {
                     try {
-                      recordModelUsage(context.req.provider, context.req.body.model, tokens);
+                      recordModelUsage(
+                        context.req.provider,
+                        context.req.body.model,
+                        tokens,
+                      );
                       context.req._usageRecorded = true; // mark to prevent double-count in onSend
                     } catch {}
                   }
@@ -705,10 +745,12 @@ export class AnthropicTransformer implements Transformer {
                         stop_sequence: null,
                       },
                       usage: {
-                        input_tokens:
-                          Math.max(0, (chunk.usage?.prompt_tokens || 0) -
-                                                      (chunk.usage?.prompt_tokens_details?.cached_tokens ||
-                                                        0)),
+                        input_tokens: Math.max(
+                          0,
+                          (chunk.usage?.prompt_tokens || 0) -
+                            (chunk.usage?.prompt_tokens_details
+                              ?.cached_tokens || 0),
+                        ),
                         output_tokens: chunk.usage?.completion_tokens || 0,
                         cache_read_input_tokens:
                           chunk.usage?.prompt_tokens_details?.cached_tokens ||
@@ -717,10 +759,12 @@ export class AnthropicTransformer implements Transformer {
                     };
                   } else {
                     stopReasonMessageDelta.usage = {
-                      input_tokens:
-                        Math.max(0, (chunk.usage?.prompt_tokens || 0) -
-                                                    (chunk.usage?.prompt_tokens_details?.cached_tokens ||
-                                                      0)),
+                      input_tokens: Math.max(
+                        0,
+                        (chunk.usage?.prompt_tokens || 0) -
+                          (chunk.usage?.prompt_tokens_details?.cached_tokens ||
+                            0),
+                      ),
                       output_tokens: chunk.usage?.completion_tokens || 0,
                       cache_read_input_tokens:
                         chunk.usage?.prompt_tokens_details?.cached_tokens || 0,
@@ -758,9 +802,9 @@ export class AnthropicTransformer implements Transformer {
                     safeEnqueue(
                       encoder.encode(
                         `event: content_block_start\ndata: ${JSON.stringify(
-                          contentBlockStart
-                        )}\n\n`
-                      )
+                          contentBlockStart,
+                        )}\n\n`,
+                      ),
                     );
                     currentContentBlockIndex = thinkingBlockIndex;
                     isThinkingStarted = true;
@@ -777,9 +821,9 @@ export class AnthropicTransformer implements Transformer {
                     safeEnqueue(
                       encoder.encode(
                         `event: content_block_delta\ndata: ${JSON.stringify(
-                          thinkingSignature
-                        )}\n\n`
-                      )
+                          thinkingSignature,
+                        )}\n\n`,
+                      ),
                     );
                     const contentBlockStop = {
                       type: "content_block_stop",
@@ -788,9 +832,9 @@ export class AnthropicTransformer implements Transformer {
                     safeEnqueue(
                       encoder.encode(
                         `event: content_block_stop\ndata: ${JSON.stringify(
-                          contentBlockStop
-                        )}\n\n`
-                      )
+                          contentBlockStop,
+                        )}\n\n`,
+                      ),
                     );
                     currentContentBlockIndex = -1;
                   } else if (choice.delta.thinking.content) {
@@ -805,9 +849,9 @@ export class AnthropicTransformer implements Transformer {
                     safeEnqueue(
                       encoder.encode(
                         `event: content_block_delta\ndata: ${JSON.stringify(
-                          thinkingChunk
-                        )}\n\n`
-                      )
+                          thinkingChunk,
+                        )}\n\n`,
+                      ),
                     );
                   }
                 }
@@ -824,7 +868,7 @@ export class AnthropicTransformer implements Transformer {
                         "<|tool_calls_section_begin|>",
                         "<|tool_call_begin|>",
                         "<|tool_calls_section_end|>",
-                        "<|tool_call_end|>"
+                        "<|tool_call_end|>",
                       ];
                       let firstIdx = Infinity;
                       let matchedToken = "";
@@ -839,29 +883,43 @@ export class AnthropicTransformer implements Transformer {
 
                       if (firstIdx !== Infinity) {
                         outputText += kimiContentBuffer.substring(0, firstIdx);
-                        if (matchedToken === "<|tool_calls_section_begin|>" || matchedToken === "<|tool_call_begin|>") {
+                        if (
+                          matchedToken === "<|tool_calls_section_begin|>" ||
+                          matchedToken === "<|tool_call_begin|>"
+                        ) {
                           inKimiToolCallSection = true;
                         }
-                        kimiContentBuffer = kimiContentBuffer.substring(firstIdx + matchedToken.length);
+                        kimiContentBuffer = kimiContentBuffer.substring(
+                          firstIdx + matchedToken.length,
+                        );
                       } else {
                         // Check if the end of the buffer matches a prefix of any of the 4 tokens
                         let safeLength = kimiContentBuffer.length;
                         for (const token of tokens) {
                           for (let i = 1; i < token.length; i++) {
-                            if (kimiContentBuffer.endsWith(token.substring(0, i))) {
-                              safeLength = Math.min(safeLength, kimiContentBuffer.length - i);
+                            if (
+                              kimiContentBuffer.endsWith(token.substring(0, i))
+                            ) {
+                              safeLength = Math.min(
+                                safeLength,
+                                kimiContentBuffer.length - i,
+                              );
                               break;
                             }
                           }
                         }
-                        outputText += kimiContentBuffer.substring(0, safeLength);
-                        kimiContentBuffer = kimiContentBuffer.substring(safeLength);
+                        outputText += kimiContentBuffer.substring(
+                          0,
+                          safeLength,
+                        );
+                        kimiContentBuffer =
+                          kimiContentBuffer.substring(safeLength);
                         break;
                       }
                     } else {
                       const endTokens = [
                         "<|tool_calls_section_end|>",
-                        "<|tool_call_end|>"
+                        "<|tool_call_end|>",
                       ];
                       let firstIdx = Infinity;
                       let matchedToken = "";
@@ -876,18 +934,24 @@ export class AnthropicTransformer implements Transformer {
 
                       if (firstIdx !== Infinity) {
                         inKimiToolCallSection = false;
-                        kimiContentBuffer = kimiContentBuffer.substring(firstIdx + matchedToken.length);
+                        kimiContentBuffer = kimiContentBuffer.substring(
+                          firstIdx + matchedToken.length,
+                        );
                       } else {
                         // Keep only the suffix that might be a prefix of any of the end tokens
                         let keepLength = 0;
                         for (const token of endTokens) {
                           for (let i = 1; i < token.length; i++) {
-                            if (kimiContentBuffer.endsWith(token.substring(0, i))) {
+                            if (
+                              kimiContentBuffer.endsWith(token.substring(0, i))
+                            ) {
                               keepLength = Math.max(keepLength, i);
                             }
                           }
                         }
-                        kimiContentBuffer = kimiContentBuffer.substring(kimiContentBuffer.length - keepLength);
+                        kimiContentBuffer = kimiContentBuffer.substring(
+                          kimiContentBuffer.length - keepLength,
+                        );
                         break;
                       }
                     }
@@ -912,9 +976,9 @@ export class AnthropicTransformer implements Transformer {
                     safeEnqueue(
                       encoder.encode(
                         `event: content_block_stop\ndata: ${JSON.stringify(
-                          contentBlockStop
-                        )}\n\n`
-                      )
+                          contentBlockStop,
+                        )}\n\n`,
+                      ),
                     );
                     currentContentBlockIndex = -1;
                     hasTextContentStarted = false;
@@ -940,9 +1004,9 @@ export class AnthropicTransformer implements Transformer {
                     safeEnqueue(
                       encoder.encode(
                         `event: content_block_start\ndata: ${JSON.stringify(
-                          contentBlockStart
-                        )}\n\n`
-                      )
+                          contentBlockStart,
+                        )}\n\n`,
+                      ),
                     );
 
                     const contentBlockStop = {
@@ -952,9 +1016,9 @@ export class AnthropicTransformer implements Transformer {
                     safeEnqueue(
                       encoder.encode(
                         `event: content_block_stop\ndata: ${JSON.stringify(
-                          contentBlockStop
-                        )}\n\n`
-                      )
+                          contentBlockStop,
+                        )}\n\n`,
+                      ),
                     );
                     currentContentBlockIndex = -1;
                   });
@@ -984,9 +1048,9 @@ export class AnthropicTransformer implements Transformer {
                         safeEnqueue(
                           encoder.encode(
                             `event: content_block_stop\ndata: ${JSON.stringify(
-                              contentBlockStop
-                            )}\n\n`
-                          )
+                              contentBlockStop,
+                            )}\n\n`,
+                          ),
                         );
                         currentContentBlockIndex = -1;
                       }
@@ -994,7 +1058,7 @@ export class AnthropicTransformer implements Transformer {
                       const newContentBlockIndex = assignContentBlockIndex();
                       toolCallIndexToContentBlockIndex.set(
                         toolCallIndex,
-                        newContentBlockIndex
+                        newContentBlockIndex,
                       );
                       const toolCallId =
                         toolCall.id || `call_${Date.now()}_${toolCallIndex}`;
@@ -1014,9 +1078,9 @@ export class AnthropicTransformer implements Transformer {
                       safeEnqueue(
                         encoder.encode(
                           `event: content_block_start\ndata: ${JSON.stringify(
-                            contentBlockStart
-                          )}\n\n`
-                        )
+                            contentBlockStart,
+                          )}\n\n`,
+                        ),
                       );
                       currentContentBlockIndex = newContentBlockIndex;
 
@@ -1067,9 +1131,9 @@ export class AnthropicTransformer implements Transformer {
                         safeEnqueue(
                           encoder.encode(
                             `event: content_block_delta\ndata: ${JSON.stringify(
-                              anthropicChunk
-                            )}\n\n`
-                          )
+                              anthropicChunk,
+                            )}\n\n`,
+                          ),
                         );
                       } catch {
                         try {
@@ -1089,9 +1153,9 @@ export class AnthropicTransformer implements Transformer {
                           safeEnqueue(
                             encoder.encode(
                               `event: content_block_delta\ndata: ${JSON.stringify(
-                                fixedChunk
-                              )}\n\n`
-                            )
+                                fixedChunk,
+                              )}\n\n`,
+                            ),
                           );
                         } catch (fixError) {
                           console.error(fixError);
@@ -1109,7 +1173,7 @@ export class AnthropicTransformer implements Transformer {
 
                   if (contentChunks === 0 && toolCallChunks === 0) {
                     console.error(
-                      "Warning: No content in the stream response!"
+                      "Warning: No content in the stream response!",
                     );
                   }
 
@@ -1122,9 +1186,9 @@ export class AnthropicTransformer implements Transformer {
                     safeEnqueue(
                       encoder.encode(
                         `event: content_block_stop\ndata: ${JSON.stringify(
-                          contentBlockStop
-                        )}\n\n`
-                      )
+                          contentBlockStop,
+                        )}\n\n`,
+                      ),
                     );
                     currentContentBlockIndex = -1;
                   }
@@ -1155,10 +1219,12 @@ export class AnthropicTransformer implements Transformer {
                           stop_sequence: null,
                         },
                         usage: {
-                          input_tokens:
-                            Math.max(0, (chunk.usage?.prompt_tokens || 0) -
-                                                        (chunk.usage?.prompt_tokens_details?.cached_tokens ||
-                                                          0)),
+                          input_tokens: Math.max(
+                            0,
+                            (chunk.usage?.prompt_tokens || 0) -
+                              (chunk.usage?.prompt_tokens_details
+                                ?.cached_tokens || 0),
+                          ),
                           output_tokens: chunk.usage?.completion_tokens || 0,
                           cache_read_input_tokens:
                             chunk.usage?.prompt_tokens_details?.cached_tokens ||
@@ -1172,7 +1238,7 @@ export class AnthropicTransformer implements Transformer {
                 }
               } catch (parseError: any) {
                 this.logger?.error(
-                  `parseError: ${parseError.name} message: ${parseError.message} stack: ${parseError.stack} data: ${data}`
+                  `parseError: ${parseError.name} message: ${parseError.message} stack: ${parseError.stack} data: ${data}`,
                 );
               }
             }
@@ -1205,7 +1271,7 @@ export class AnthropicTransformer implements Transformer {
           {
             reqId: context.req.id,
           },
-          `cancle stream: ${reason}`
+          `cancle stream: ${reason}`,
         );
       },
     });
@@ -1215,14 +1281,14 @@ export class AnthropicTransformer implements Transformer {
 
   private convertOpenAIResponseToAnthropic(
     openaiResponse: ChatCompletion,
-    context: TransformerContext
+    context: TransformerContext,
   ): any {
     this.logger.debug(
       {
         reqId: context.req.id,
         response: openaiResponse,
       },
-      `Original OpenAI response`
+      `Original OpenAI response`,
     );
     try {
       const choice = openaiResponse.choices[0];
@@ -1253,9 +1319,22 @@ export class AnthropicTransformer implements Transformer {
         });
       }
       if (choice.message.content) {
+        let cleanText = choice.message.content;
+        cleanText = cleanText.replace(
+          /<\|tool_calls_section_begin\|>[\s\S]*?<\|tool_calls_section_end\|>/g,
+          "",
+        );
+        cleanText = cleanText.replace(
+          /<\|tool_call_begin\|>[\s\S]*?<\|tool_call_end\|>/g,
+          "",
+        );
+        cleanText = cleanText.replace(
+          /<\|tool_calls_section_begin\|>|<\|tool_call_begin\|>|<\|tool_calls_section_end\|>|<\|tool_call_end\|>/g,
+          "",
+        );
         content.push({
           type: "text",
-          text: choice.message.content,
+          text: cleanText,
         });
       }
       if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
@@ -1298,12 +1377,12 @@ export class AnthropicTransformer implements Transformer {
           choice.finish_reason === "stop"
             ? "end_turn"
             : choice.finish_reason === "length"
-            ? "max_tokens"
-            : choice.finish_reason === "tool_calls"
-            ? "tool_use"
-            : choice.finish_reason === "content_filter"
-            ? "stop_sequence"
-            : "end_turn",
+              ? "max_tokens"
+              : choice.finish_reason === "tool_calls"
+                ? "tool_use"
+                : choice.finish_reason === "content_filter"
+                  ? "stop_sequence"
+                  : "end_turn",
         stop_sequence: null,
         usage: {
           input_tokens:
@@ -1319,14 +1398,14 @@ export class AnthropicTransformer implements Transformer {
           reqId: context.req.id,
           result,
         },
-        `Conversion complete, final Anthropic response`
+        `Conversion complete, final Anthropic response`,
       );
       return result;
     } catch {
       throw createApiError(
         `Provider error: ${JSON.stringify(openaiResponse)}`,
         500,
-        "provider_error"
+        "provider_error",
       );
     }
   }

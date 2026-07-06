@@ -116,8 +116,8 @@ async function handleTransformerEndpoint(
 
       // Auto-fix max_tokens: detect limit error, correct value, retry same model
       const errorMsg = error.message || error.error?.message || "";
-      const maxTokenMatch = errorMsg.match(/(?:max_tokens|should be\s*<=\s*|a value\s*<=\s*)(\d{2,})/i)
-        || errorMsg.match(/(?:<=|<)\s*(\d{4,})/);
+      const maxTokenMatch = errorMsg.match(/max_tokens.*?(?:limit|max|value)?.*?(\d{3,5})/i)
+        || errorMsg.match(/(?:should be|must be|<=|<)\s*(\d{3,5})/i);
       if (maxTokenMatch && error.statusCode === 400) {
         const correctMax = parseInt(maxTokenMatch[1], 10);
         if (correctMax > 0 && correctMax < (currentBody.max_tokens || Infinity)) {
@@ -212,7 +212,8 @@ async function getFallbackModel(req: FastifyRequest, fastify: FastifyInstance, e
     return null;
   }
 
-  const currentModelSpec = getModelSpec(req.provider!, req.body.model);
+  const modelName = req.body.model.includes(",") ? req.body.model.split(",")[1] : req.body.model;
+  const currentModelSpec = getModelSpec(req.provider!, modelName);
   markModelAsFailed(currentModelSpec);
 
   const scenarioType = (req as any).scenarioType || "default";

@@ -262,7 +262,7 @@ function App() {
           </div>
         </div>
       </main>
-      <SettingsDialog isOpen={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
+      <SettingsDialog isOpen={isSettingsOpen} onOpenChange={setIsSettingsOpen} onSave={saveConfig} />
       <JsonEditor 
         open={isJsonEditorOpen} 
         onOpenChange={setIsJsonEditorOpen} 

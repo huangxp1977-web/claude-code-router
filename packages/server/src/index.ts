@@ -241,18 +241,23 @@ async function getServer(options: RunOptions = {}) {
           // change request body
           agent.reqHandler(req, currentConfig);
 
-          // append agent tools
-          if (agent.tools.size) {
-            if (!req.body?.tools?.length) {
-              req.body.tools = []
-            }
-            req.body.tools.unshift(...Array.from(agent.tools.values()).map(item => {
-              return {
-                name: item.name,
-                description: item.description,
-                input_schema: item.input_schema
-              }
-            }))
+          // append agent tools - replace any existing search tools
+                    if (agent.tools.size) {
+                      if (!req.body?.tools?.length) {
+                        req.body.tools = []
+                      }
+                      // Filter out any existing search/web_search tools from CC
+                      req.body.tools = req.body.tools.filter((t: any) => 
+                        t.name !== "web_search" && t.name !== "WebSearch"
+                      );
+                      // Add our tools at the front
+                      req.body.tools.unshift(...Array.from(agent.tools.values()).map(item => {
+                        return {
+                          name: item.name,
+                          description: item.description,
+                          input_schema: item.input_schema
+                        }
+                      }))
           }
         }
       }
@@ -378,7 +383,8 @@ async function getServer(options: RunOptions = {}) {
                         })
                         const toolResult = await currentAgent?.tools.get(currentToolName)?.handler(args, {
                           req,
-                          config: serverInstance.configService.getAll()
+                          config: serverInstance.configService.getAll(),
+                          configService: serverInstance.configService
                         });
                         toolMessages.push({
                           "tool_use_id": currentToolId,

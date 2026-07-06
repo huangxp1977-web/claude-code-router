@@ -60,7 +60,7 @@ export const sessionUsageCache = new LRUCache<string, Usage>(100);
 
 // Cache for failed models - stores provider,model pairs that have failed
 // Entries expire after FAILED_MODEL_TTL_MS to allow retry after transient errors (e.g. 429)
-const FAILED_MODEL_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const FAILED_MODEL_TTL_MS = 1 * 60 * 1000; // 1 minute
 export const failedModelsCache = new LRUCache<string, number>(1000);
 
 export const markModelAsFailed = (modelSpec: string): void => {

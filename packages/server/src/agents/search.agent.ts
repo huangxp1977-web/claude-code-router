@@ -7,16 +7,53 @@ interface SearchResult {
   position: number;
 }
 
-async function searchDuckDuckGo(query: string, limit: number = 5): Promise<any> {
+async function searchTavily(query: string, apiKey: string, limit: number = 5, proxyUrl?: string): Promise<any> {
   try {
+    const fetchOptions: any = {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        query,
+        max_results: Math.min(limit, 20),
+        include_raw_content: false,
+        include_images: false,
+      }),
+    };
+    if (proxyUrl) {
+      const { ProxyAgent } = await import("undici");
+      fetchOptions.dispatcher = new ProxyAgent(new URL(proxyUrl).toString());
+    }
+    const response = await fetch("https://api.tavily.com/search", fetchOptions);
+    if (!response.ok) throw new Error(`Tavily returned ${response.status}`);
+    const data = await response.json();
+    const web = (data.results || []).map((r: any, i: number) => ({
+      title: r.title || "",
+      url: r.url || "",
+      description: r.content || "",
+      position: i + 1,
+    }));
+    return { success: true, data: { web } };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function searchDuckDuckGo(query: string, limit: number = 5, proxyUrl?: string): Promise<any> {
+  try {
+    const fetchOptions: any = {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      }
+    };
+    if (proxyUrl) {
+      const { ProxyAgent } = await import("undici");
+      fetchOptions.dispatcher = new ProxyAgent(new URL(proxyUrl).toString());
+    }
     const response = await fetch(
       `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
-      {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        },
-      }
+      fetchOptions
     );
 
     if (!response.ok) {
@@ -118,8 +155,7 @@ export class SearchAgent implements IAgent {
   }
 
   reqHandler(req: any, config: any): void {
-    // The search tool will be added by the agent system
-    // No need to modify request here
+    // Search tool replacement handled in preHandler (index.ts)
   }
 
   private registerSearchTool() {
@@ -144,6 +180,14 @@ export class SearchAgent implements IAgent {
         const query = args.query;
         const limit = args.max_results || 5;
 
+        // Get proxy URL: configService.getHttpsProxy() > config.PROXY_URL > env vars
+        const proxyUrl = context.configService?.getHttpsProxy() ||
+                         context.config.PROXY_URL ||
+                         process.env.HTTPS_PROXY ||
+                         process.env.https_proxy ||
+                         process.env.HTTP_PROXY ||
+                         process.env.http_proxy;
+
         // Get the search config
         const webSearchConfig = context.config.WebSearch;
         if (!webSearchConfig?.enabled) {
@@ -161,10 +205,11 @@ export class SearchAgent implements IAgent {
         try {
           let result;
           if (activeProvider === "duckduckgo") {
-            result = await searchDuckDuckGo(args.query, args.max_results || 5);
+            result = await searchDuckDuckGo(args.query, args.max_results || 5, proxyUrl);
           } else if (activeProvider === "tavily") {
-            // TODO: Implement Tavily
-            return "Tavily provider not yet implemented. Please select DuckDuckGo or configure Tavily API key.";
+            const apiKey = providerConfig.apiKey;
+            if (!apiKey) return "Tavily API key not configured. Please set it in Settings.";
+            result = await searchTavily(args.query, apiKey, args.max_results || 5, proxyUrl);
           } else if (activeProvider === "brave") {
             // TODO: Implement Brave
             return "Brave Search not yet implemented. Please select DuckDuckGo or configure Brave API key.";

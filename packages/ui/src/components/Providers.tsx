@@ -1282,7 +1282,7 @@ export function Providers() {
                         <div className="flex gap-2">
                           <div className="flex-1 flex gap-2">
                             <Combobox
-                              options={availableTransformers.map(t => ({
+                              options={availableTransformers.filter(t => t.name !== "openai").map(t => ({
                                 label: t.name,
                                 value: t.name
                               }))}

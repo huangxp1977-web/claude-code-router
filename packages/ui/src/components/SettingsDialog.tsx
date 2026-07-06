@@ -19,9 +19,10 @@ import type { StatusLineConfig } from "@/types";
 interface SettingsDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  onSave?: () => void;
 }
 
-export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
+export function SettingsDialog({ isOpen, onOpenChange, onSave }: SettingsDialogProps) {
   const { t } = useTranslation();
   const { config, setConfig } = useConfig();
   const [isStatusLineConfigOpen, setIsStatusLineConfigOpen] = useState(false);
@@ -58,8 +59,14 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange} >
-      <DialogContent data-testid="settings-dialog" className="max-h-[80vh] flex flex-col p-0" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} onFocusOutside={(e) => e.preventDefault()}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent
+        data-testid="settings-dialog"
+        className="max-h-[80vh] flex flex-col p-0"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="p-4 pb-0">
           <DialogTitle>{t("toplevel.title")}</DialogTitle>
         </DialogHeader>
@@ -105,7 +112,12 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="log-level" className="transition-all-ease hover:scale-[1.01] cursor-pointer">{t("toplevel.log_level")}</Label>
+            <Label
+              htmlFor="log-level"
+              className="transition-all-ease hover:scale-[1.01] cursor-pointer"
+            >
+              {t("toplevel.log_level")}
+            </Label>
             <Combobox
               options={[
                 { label: "fatal", value: "fatal" },
@@ -222,7 +234,9 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
             <Input
               id="custom-router-path"
               value={config.CUSTOM_ROUTER_PATH || ""}
-              onChange={(e) => setConfig({ ...config, CUSTOM_ROUTER_PATH: e.target.value })}
+              onChange={(e) =>
+                setConfig({ ...config, CUSTOM_ROUTER_PATH: e.target.value })
+              }
               placeholder={t("toplevel.custom_router_path_placeholder")}
               className="transition-all-ease focus:scale-[1.01]"
             />
@@ -231,37 +245,57 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
           <div className="space-y-4 border-t pt-4">
             <div className="space-y-0.5">
               <Label>{t("toplevel.search_providers")}</Label>
-              <p className="text-xs text-muted-foreground">{t("toplevel.search_providers_description")}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("toplevel.search_providers_description")}
+              </p>
             </div>
 
             <div className="space-y-3">
               {/* DuckDuckGo Card */}
               <div
                 onClick={() => {
-                  const webSearch = config.WebSearch || { enabled: true, activeProvider: "duckduckgo", providers: {} };
+                  const webSearch = config.WebSearch || {
+                    enabled: true,
+                    activeProvider: "duckduckgo",
+                    providers: {},
+                  };
                   setConfig({
                     ...config,
-                    WebSearch: { ...webSearch, enabled: true, activeProvider: "duckduckgo" }
+                    WebSearch: {
+                      ...webSearch,
+                      enabled: true,
+                      activeProvider: "duckduckgo",
+                    },
                   });
                 }}
                 className={`flex items-center justify-between rounded-lg border p-3 cursor-pointer transition-all ${
-                  (config.WebSearch?.activeProvider || "duckduckgo") === "duckduckgo"
+                  (config.WebSearch?.activeProvider || "duckduckgo") ===
+                  "duckduckgo"
                     ? "border-primary bg-primary/5 ring-1 ring-primary"
                     : "hover:bg-accent/50"
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-bold">DDG</div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-bold">
+                    DDG
+                  </div>
                   <div>
                     <p className="text-sm font-medium">DuckDuckGo</p>
-                    <p className="text-xs text-muted-foreground">{t("toplevel.duckduckgo_description")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("toplevel.duckduckgo_description")}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {(config.WebSearch?.activeProvider || "duckduckgo") === "duckduckgo" ? (
-                    <span className="text-xs text-primary font-medium">✓ {t("toplevel.always_available")}</span>
+                  {(config.WebSearch?.activeProvider || "duckduckgo") ===
+                  "duckduckgo" ? (
+                    <span className="text-xs text-primary font-medium">
+                      ✓ {t("toplevel.always_available")}
+                    </span>
                   ) : (
-                    <span className="text-xs text-muted-foreground">{t("toplevel.always_available")}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {t("toplevel.always_available")}
+                    </span>
                   )}
                 </div>
               </div>
@@ -269,66 +303,113 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
               {/* Tavily Card */}
               <div
                 onClick={() => {
-                  const webSearch = config.WebSearch || { enabled: true, activeProvider: "duckduckgo", providers: {} };
-                  const isAlreadyActive = webSearch.activeProvider === "tavily";
+                  const webSearch = config.WebSearch || {
+                    enabled: true,
+                    activeProvider: "duckduckgo",
+                    providers: {},
+                  };
+                  const currentTavily = webSearch.providers?.tavily || {};
+                  const newEnabled = !currentTavily.enabled;
                   setConfig({
                     ...config,
                     WebSearch: {
                       ...webSearch,
                       enabled: true,
-                      activeProvider: isAlreadyActive ? "duckduckgo" : "tavily"
-                    }
+                      activeProvider:
+                        !newEnabled && webSearch.activeProvider === "tavily"
+                          ? "duckduckgo"
+                          : webSearch.activeProvider,
+                      providers: {
+                        ...webSearch.providers,
+                        tavily: {
+                          ...currentTavily,
+                          enabled: newEnabled ? "true" : "false",
+                        },
+                      },
+                    },
                   });
                 }}
                 className={`flex items-center justify-between rounded-lg border p-3 cursor-pointer transition-all ${
-                  config.WebSearch?.activeProvider === "tavily"
+                  config.WebSearch?.providers?.tavily?.enabled === "true"
                     ? "border-primary bg-primary/5 ring-1 ring-primary"
                     : "hover:bg-accent/50"
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">TV</div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-bold">
+                    TV
+                  </div>
                   <div>
                     <p className="text-sm font-medium">Tavily</p>
-                    <p className="text-xs text-muted-foreground">{t("toplevel.tavily_description")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("toplevel.tavily_description")}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
+                <div
+                  className="flex items-center gap-4"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Switch
                     id="tavily-enable"
-                    checked={config.WebSearch?.activeProvider === "tavily"}
+                    checked={
+                      config.WebSearch?.providers?.tavily?.enabled === "true"
+                    }
                     onCheckedChange={(checked) => {
-                      const webSearch = config.WebSearch || { enabled: true, activeProvider: "duckduckgo", providers: {} };
+                      const webSearch = config.WebSearch || {
+                        enabled: true,
+                        activeProvider: "duckduckgo",
+                        providers: {},
+                      };
+                      const currentTavily = webSearch.providers?.tavily || {};
                       setConfig({
                         ...config,
                         WebSearch: {
                           ...webSearch,
                           enabled: true,
-                          activeProvider: checked ? "tavily" : "duckduckgo"
-                        }
+                          activeProvider:
+                            !checked && webSearch.activeProvider === "tavily"
+                              ? "duckduckgo"
+                              : webSearch.activeProvider,
+                          providers: {
+                            ...webSearch.providers,
+                            tavily: {
+                              ...currentTavily,
+                              enabled: checked ? "true" : "false",
+                            },
+                          },
+                        },
                       });
                     }}
                   />
                 </div>
               </div>
 
-              {/* Tavily API Key - only shown when Tavily is active */}
-              {config.WebSearch?.activeProvider === "tavily" && (
+              {/* Tavily API Key - only shown when Tavily is enabled */}
+              {config.WebSearch?.providers?.tavily?.enabled === "true" && (
                 <div className="ml-11 space-y-2">
                   <Input
                     placeholder="Tavily API Key"
                     value={config.WebSearch?.providers?.tavily?.apiKey || ""}
                     onChange={(e) => {
-                      const webSearch = config.WebSearch || { enabled: true, activeProvider: "tavily", providers: {} };
+                      const webSearch = config.WebSearch || {
+                        enabled: true,
+                        activeProvider: "duckduckgo",
+                        providers: {},
+                      };
+                      const currentTavily = webSearch.providers?.tavily || {};
                       setConfig({
                         ...config,
                         WebSearch: {
                           ...webSearch,
                           providers: {
                             ...webSearch.providers,
-                            tavily: { apiKey: e.target.value }
-                          }
-                        }
+                            tavily: {
+                              ...currentTavily,
+                              apiKey: e.target.value,
+                            },
+                          },
+                        },
                       });
                     }}
                     className="h-8 text-sm"
@@ -340,7 +421,10 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
         </div>
         <DialogFooter className="p-4 pt-0">
           <Button
-            onClick={() => onOpenChange(false)}
+            onClick={async () => {
+              if (onSave) await onSave();
+              onOpenChange(false);
+            }}
             className="transition-all-ease hover:scale-[1.02] active:scale-[0.98]"
           >
             {t("app.save")}

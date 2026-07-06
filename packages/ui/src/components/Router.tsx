@@ -17,7 +17,9 @@ export function Router() {
           <CardTitle className="text-lg">{t("router.title")}</CardTitle>
         </CardHeader>
         <CardContent className="flex-grow flex items-center justify-center p-4">
-          <div className="text-muted-foreground">Loading router configuration...</div>
+          <div className="text-muted-foreground">
+            Loading router configuration...
+          </div>
         </CardContent>
       </Card>
     );
@@ -29,10 +31,13 @@ export function Router() {
     background: [],
     think: [],
     webSearch: [],
-    image: []
+    image: [],
   };
 
-  const handleRouterChange = (field: string, value: string[] | number | boolean) => {
+  const handleRouterChange = (
+    field: string,
+    value: string[] | number | boolean,
+  ) => {
     // Handle case where config.Router might be null or undefined
     const currentRouter = config.Router || {};
     const newRouter = { ...currentRouter, [field]: value };
@@ -47,23 +52,23 @@ export function Router() {
   const getArrayValue = (val: any): string[] => {
     if (!val) return [];
     if (Array.isArray(val)) return val;
-    if (typeof val === 'string') return [val];
+    if (typeof val === "string") return [val];
     return [];
   };
 
   // Handle case where config.Providers might be null or undefined
   const providers = Array.isArray(config.Providers) ? config.Providers : [];
-  
+
   const modelOptions = providers.flatMap((provider) => {
     // Handle case where individual provider might be null or undefined
     if (!provider) return [];
-    
+
     // Handle case where provider.models might be null or undefined
     const models = Array.isArray(provider.models) ? provider.models : [];
-    
+
     // Handle case where provider.name might be null or undefined
     const providerName = provider.name || "Unknown Provider";
-    
+
     return models.map((model) => ({
       value: `${providerName},${model || "Unknown Model"}`,
       label: `${providerName}, ${model || "Unknown Model"}`,
@@ -110,42 +115,59 @@ export function Router() {
           />
         </div>
         <div className="space-y-2">
-            <Label htmlFor="webSearchProvider">{t("router.webSearch")}</Label>
-            <select
-              id="webSearchProvider"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              value={config.WebSearch?.activeProvider || ""}
-              onChange={(e) => {
-                const selectedValue = e.target.value;
-                const webSearch = config.WebSearch || { enabled: false, activeProvider: "", providers: {} };
+          <Label htmlFor="webSearchProvider">{t("router.webSearch")}</Label>
+          <select
+            id="webSearchProvider"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            value={config.WebSearch?.activeProvider || ""}
+            onChange={(e) => {
+              const selectedValue = e.target.value;
+              const webSearch = config.WebSearch || {
+                enabled: false,
+                activeProvider: "",
+                providers: {},
+              };
 
-                if (selectedValue === "") {
-                  setConfig({
-                    ...config,
-                    WebSearch: {
-                      ...webSearch,
-                      enabled: false,
-                      activeProvider: "",
-                    }
-                  });
-                } else {
-                  setConfig({
-                    ...config,
-                    WebSearch: {
-                      ...webSearch,
-                      enabled: true,
-                      activeProvider: selectedValue,
-                    }
-                  });
-                }
-              }}
+              if (selectedValue === "") {
+                setConfig({
+                  ...config,
+                  WebSearch: {
+                    ...webSearch,
+                    enabled: false,
+                    activeProvider: "",
+                  },
+                });
+              } else {
+                setConfig({
+                  ...config,
+                  WebSearch: {
+                    ...webSearch,
+                    enabled: true,
+                    activeProvider: selectedValue,
+                  },
+                });
+              }
+            }}
+          >
+            <option value="" className="bg-background text-foreground">
+              {t("common.disabled")}
+            </option>
+            <option
+              value="duckduckgo"
+              className="bg-background text-foreground"
             >
-              <option value="" className="bg-background text-foreground">{t("common.disabled")}</option>
-              <option value="duckduckgo" className="bg-background text-foreground">DuckDuckGo</option>
-              {config.WebSearch?.providers?.tavily?.apiKey && (
-                <option value="tavily" className="bg-background text-foreground">Tavily</option>
+              DuckDuckGo
+            </option>
+            {config.WebSearch?.providers?.tavily?.enabled === "true" &&
+              config.WebSearch?.providers?.tavily?.apiKey && (
+                <option
+                  value="tavily"
+                  className="bg-background text-foreground"
+                >
+                  Tavily
+                </option>
               )}
-            </select>
+          </select>
         </div>
         <div className="space-y-2">
           <div className="flex items-center gap-4">
@@ -161,11 +183,15 @@ export function Router() {
               />
             </div>
             <div className="w-48">
-              <Label htmlFor="forceUseImageAgent">{t("router.forceUseImageAgent")}</Label>
+              <Label htmlFor="forceUseImageAgent">
+                {t("router.forceUseImageAgent")}
+              </Label>
               <select
                 id="forceUseImageAgent"
                 value={config.forceUseImageAgent ? "true" : "false"}
-                onChange={(e) => handleForceUseImageAgentChange(e.target.value === "true")}
+                onChange={(e) =>
+                  handleForceUseImageAgentChange(e.target.value === "true")
+                }
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="false">{t("common.no")}</option>
