@@ -17,8 +17,12 @@ try {
 
   // Build the server application (skipping tsc declaration generation to avoid pre-existing type errors)
   console.log('Building server application...');
-  // 使用 minify 和 tree-shaking 优化体积
-  execSync('esbuild src/index.ts --bundle --platform=node --minify --tree-shaking=false --outfile=dist/index.js', {
+  // Build the server application.
+  // NOTE: --minify implicitly enables tree-shaking and overrides
+  // --tree-shaking=false, so SearchAgent (only registered at module
+  // scope, never exported) gets tree-shaken away at runtime. Build
+  // without --minify to preserve all side-effect-only registrations.
+  execSync('esbuild src/index.ts --bundle --platform=node --tree-shaking=false --outfile=dist/index.js', {
     stdio: 'inherit',
     cwd: serverDir
   });

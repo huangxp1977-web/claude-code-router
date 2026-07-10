@@ -350,28 +350,11 @@ export class AnthropicTransformer implements Transformer {
 
     // Convert unified tools to Anthropic format
     if (request.tools?.length) {
-      const regularTools = request.tools.filter(
-        (tool) =>
-          tool.function.name !== "web_search" &&
-          tool.function.name !== "WebSearch",
-      );
-      const hasWebSearch = request.tools.some(
-        (tool) =>
-          tool.function.name === "web_search" ||
-          tool.function.name === "WebSearch",
-      );
-      body.tools = regularTools.map((tool) => ({
-        name: tool.function.name,
-        description: tool.function.description || "",
-        input_schema: tool.function.parameters,
+      body.tools = request.tools.map((tool: any) => ({
+        name: tool.function?.name || tool.name,
+        description: tool.function?.description || tool.description || "",
+        input_schema: tool.function?.parameters || tool.input_schema,
       }));
-      if (hasWebSearch) {
-        body.tools.push({
-          type: "web_search_20250305",
-          name: "web_search",
-          max_uses: 5,
-        });
-      }
     }
 
     // Handle tool_choice
@@ -411,14 +394,45 @@ export class AnthropicTransformer implements Transformer {
   }
 
   private convertAnthropicToolsToUnified(tools: any[]): UnifiedTool[] {
-    return tools.map((tool) => ({
-      type: "function",
-      function: {
-        name: tool.name,
-        description: tool.description || "",
-        parameters: tool.input_schema,
-      },
-    }));
+    return tools.map((tool) => {
+      // CC native web_search server tool (type: "web_search_20250305") has no
+      // `name`/`input_schema` — only a `type`. Convert it to the CCR web_search
+      // function tool with a proper input_schema so the upstream model can call
+      // it and the SearchAgent can handle it. This keeps CC from reporting
+      // "web_search tool not available" while routing the actual search to the
+      // configured WebSearch provider instead of a model with server-side search.
+      if (tool.type?.startsWith("web_search")) {
+        return {
+          type: "function",
+          function: {
+            name: "web_search",
+            description: "Search the web for information.",
+            parameters: {
+              type: "object",
+              properties: {
+                query: {
+                  type: "string",
+                  description: "The search query to look up",
+                },
+                max_results: {
+                  type: "number",
+                  description: "Maximum number of results to return (default: 5)",
+                },
+              },
+              required: ["query"],
+            },
+          },
+        };
+      }
+      return {
+        type: "function",
+        function: {
+          name: tool.name,
+          description: tool.description || "",
+          parameters: tool.input_schema,
+        },
+      };
+    });
   }
 
   private async convertOpenAIStreamToAnthropic(

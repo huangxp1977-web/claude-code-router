@@ -287,6 +287,10 @@ export interface RouterFallbackConfig {
 
 export const router = async (req: any, _res: any, context: RouterContext) => {
   const { configService, event } = context;
+  // Save original model before routing overwrites it (for diagnostics).
+  if (req.body && req.body.model) {
+    req._originalModel = req.body.model;
+  }
   // Normalize req.body.model if sent as an array
   if (req.body && Array.isArray(req.body.model)) {
     req.body.model = req.body.model[0];
@@ -385,6 +389,31 @@ export const router = async (req: any, _res: any, context: RouterContext) => {
       req.provider = req.body.model.split(",")[0];
     }
   }
+
+  // Log AFTER routing so the actual resolved model/provider are visible.
+  // Also capture system/message structure to diagnose messageCount anomalies.
+  const body = req.body as any;
+  const allMsgs = body.messages || [];
+  const allSystem = body.system || [];
+  const roleCounts: Record<string, number> = {};
+  allMsgs.forEach((m: any) => {
+    roleCounts[m.role] = (roleCounts[m.role] || 0) + 1;
+  });
+  req.log.info({
+    type: "routed request",
+    data: {
+      originalModel: (req as any)._originalModel ?? (body as any)._originalModel ?? null,
+      resolvedModel: body.model,
+      provider: req.provider,
+      scenarioType: req.scenarioType,
+      systemCount: Array.isArray(allSystem) ? allSystem.length : (allSystem ? 1 : 0),
+      messageCount: allMsgs.length,
+      roleDistribution: roleCounts,
+      toolTypes: (body.tools || []).map((t: any) => t.type ?? t.name ?? "unknown"),
+      tokenCount: req.tokenCount,
+    },
+  });
+
   return;
 };
 

@@ -356,3 +356,17 @@ The monorepo is organized as follows:
 - `packages/ui/` - Web-based management interface
 - `docs/` - Documentation site
 - `blog/` - Blog content and documentation
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `huangxp1977-web/claude-code-router`; external PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical triage roles map to their default label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout — one root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.

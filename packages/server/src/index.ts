@@ -247,8 +247,12 @@ async function getServer(options: RunOptions = {}) {
                         req.body.tools = []
                       }
                       // Filter out any existing search/web_search tools from CC
-                      req.body.tools = req.body.tools.filter((t: any) => 
-                        t.name !== "web_search" && t.name !== "WebSearch"
+                      // (covers both function tools with a `name` and CC's native
+                      // server tool declared as type: "web_search_20250305")
+                      req.body.tools = req.body.tools.filter((t: any) =>
+                        t.name !== "web_search" &&
+                        t.name !== "WebSearch" &&
+                        !t.type?.startsWith("web_search")
                       );
                       // Add our tools at the front
                       req.body.tools.unshift(...Array.from(agent.tools.values()).map(item => {
