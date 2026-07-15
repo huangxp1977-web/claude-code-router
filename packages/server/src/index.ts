@@ -246,10 +246,11 @@ async function getServer(options: RunOptions = {}) {
                       if (!req.body?.tools?.length) {
                         req.body.tools = []
                       }
-                      // Filter out any existing search/web_search tools from CC
+                      // Filter out any existing search/search_online tools from CC
                       // (covers both function tools with a `name` and CC's native
                       // server tool declared as type: "web_search_20250305")
                       req.body.tools = req.body.tools.filter((t: any) =>
+                        t.name !== "search_online" &&
                         t.name !== "web_search" &&
                         t.name !== "WebSearch" &&
                         !t.type?.startsWith("web_search")
@@ -262,11 +263,29 @@ async function getServer(options: RunOptions = {}) {
                           input_schema: item.input_schema
                         }
                       }))
-          }
-        }
-      }
+                      // Inject system prompt instruction when SearchAgent is active
+                      if (agent.name === "search") {
+                        const instructionText = "实时信息（天气、新闻、当前事件等）→ 使用 search_online 工具";
+                        if (req.body?.system) {
+                          if (Array.isArray(req.body.system)) {
+                            const alreadyInjected = req.body.system.some(
+                              (s: any) => typeof s === "string" ? s.includes("search_online") : s?.text?.includes("search_online")
+                            );
+                            if (!alreadyInjected) {
+                              req.body.system.push({ type: "text", text: instructionText });
+                            }
+                          } else if (typeof req.body.system === "string") {
+                            if (!req.body.system.includes("search_online")) {
+                              req.body.system += "\n" + instructionText;
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
 
-      if (useAgents.length) {
+                if (useAgents.length) {
         req.agents = useAgents;
       }
     }

@@ -396,16 +396,17 @@ export class AnthropicTransformer implements Transformer {
   private convertAnthropicToolsToUnified(tools: any[]): UnifiedTool[] {
     return tools.map((tool) => {
       // CC native web_search server tool (type: "web_search_20250305") has no
-      // `name`/`input_schema` — only a `type`. Convert it to the CCR web_search
-      // function tool with a proper input_schema so the upstream model can call
-      // it and the SearchAgent can handle it. This keeps CC from reporting
-      // "web_search tool not available" while routing the actual search to the
-      // configured WebSearch provider instead of a model with server-side search.
+      // `name`/`input_schema` — only a `type`. Convert it to a CCR function
+      // tool named "search_online" (NOT "web_search") so the upstream model
+      // can call it and the SearchAgent can handle it. The name is deliberately
+      // different from "web_search" because the CC client strips/ignores that
+      // name from the function-tool list; "search_online" passes through
+      // untouched, letting the model actually invoke the tool.
       if (tool.type?.startsWith("web_search")) {
         return {
           type: "function",
           function: {
-            name: "web_search",
+            name: "search_online",
             description: "Search the web for information.",
             parameters: {
               type: "object",

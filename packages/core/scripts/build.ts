@@ -16,7 +16,10 @@ const baseUrl = path.resolve(__dirname, "..");
 const baseConfig: esbuild.BuildOptions = {
   entryPoints: ["src/server.ts"],
   bundle: true,
-  minify: true,
+  // NOTE: --minify implicitly enables tree-shaking which removes
+  // side-effect-only registrations (like SearchAgent). Build
+  // without minify to keep them.
+  minify: false,
   sourcemap: true,
   platform: "node",
   target: "node18",

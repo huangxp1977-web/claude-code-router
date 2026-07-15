@@ -159,9 +159,9 @@ export class SearchAgent implements IAgent {
   }
 
   private registerSearchTool() {
-    this.tools.set("web_search", {
-      name: "web_search",
-      description: "Search the web for information. Returns a list of relevant results with titles, URLs, and descriptions.",
+    this.tools.set("search_online", {
+      name: "search_online",
+      description: "CRITICAL: You MUST use this tool for ANY web search or information lookup task. This tool searches the internet and returns structured results. Do NOT use WebFetch for searching - WebFetch only fetches a single URL and cannot search. When the user asks you to search, look up, or find something on the internet, ALWAYS use this tool (search_online) first.",
       input_schema: {
         type: "object",
         properties: {

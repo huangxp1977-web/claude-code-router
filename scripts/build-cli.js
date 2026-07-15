@@ -45,8 +45,12 @@ try {
   }
 
   // Step 4: Build the CLI application
+  // NOTE: --minify implicitly enables tree-shaking and overrides
+  // --tree-shaking=false, so SearchAgent (only registered at module
+  // scope, never exported) gets tree-shaken away at runtime. Build
+  // without --minify to preserve all side-effect-only registrations.
   console.log('Building CLI application...');
-  execSync('esbuild src/cli.ts --bundle --platform=node --minify --tree-shaking=false --outfile=dist/cli.js', {
+  execSync('esbuild src/cli.ts --bundle --platform=node --tree-shaking=false --outfile=dist/cli.js', {
     stdio: 'inherit',
     cwd: cliDir
   });
